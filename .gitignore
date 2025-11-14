@@ -1,0 +1,234 @@
+# ================================
+# LANGCHAIN-DEMO Project .gitignore
+# ================================
+
+# ============================================
+# Python 相关
+# ============================================
+
+# 虚拟环境
+ai-assistant/backend/venv/
+ai-assistant/backend/env/
+ai-assistant/backend/.venv/
+**/venv/
+**/env/
+**/.venv/
+**/.env/
+
+# 环境变量文件（包含API密钥）
+ai-assistant/backend/.env
+**/.env
+.env.local
+.env.*.local
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 分发/打包
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# 测试覆盖率
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# IPython
+profile_default/
+ipython_config.py
+
+# ============================================
+# Node.js / Frontend 相关
+# ============================================
+
+# 依赖目录
+ai-assistant/frontend/node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 构建输出
+ai-assistant/frontend/dist/
+ai-assistant/frontend/dist-ssr/
+ai-assistant/frontend/build/
+**/dist/
+**/build/
+
+# 包管理器锁文件（可选：如果团队使用同一包管理器，可以保留）
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Vite
+.vite
+*.local
+
+# ============================================
+# 日志文件
+# ============================================
+
+logs/
+*.log
+ai-assistant/backend/logs/
+**/*.log
+
+# ============================================
+# 操作系统相关
+# ============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.nfs*
+
+# ============================================
+# IDE / 编辑器相关
+# ============================================
+
+# VSCode
+.vscode/
+*.code-workspace
+.history/
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# ============================================
+# 数据库文件
+# ============================================
+
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================
+# 临时文件
+# ============================================
+
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.#*
+
+# ============================================
+# 密钥和证书
+# ============================================
+
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+credentials/
+
+# ============================================
+# Docker 相关（如果使用）
+# ============================================
+
+docker-compose.override.yml
+.dockerignore
+
+# ============================================
+# 项目特定文件
+# ============================================
+
+# 测试数据
+test_data/
+tmp/
+temp/
+
+# 用户上传文件
+uploads/
+media/
+
+# 本地配置
+local_settings.py
+config.local.js
+
+# 备份文件
+*.bak
+*.backup
+backup/
+
+# ============================================
+# 保留的文件（确保不被忽略）
+# ============================================
+
+# 保留示例配置文件
+!ai-assistant/backend/.env.example
+!**/.env.example
+!.env.example
