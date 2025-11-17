@@ -16,6 +16,8 @@ from config import settings
 from tools.time_tool import get_current_time, get_date_info
 from tools.calculator_tool import calculate
 from tools.search_tool import search_web
+from tools.wangwei_info import wangwei_info
+
 
 
 class ChatAgent:
@@ -35,6 +37,7 @@ class ChatAgent:
             get_date_info,
             calculate,
             search_web,
+            wangwei_info,
         ]
         
         # 创建提示词模板
@@ -72,6 +75,7 @@ class ChatAgent:
 
 3. **信息查询**
    - search_web: 搜索网络信息
+   - wangwei_info: 查询王唯信息
 
 使用指南：
 - 根据用户需求选择合适的工具
@@ -80,7 +84,15 @@ class ChatAgent:
 - 如果不确定，可以询问用户更多信息
 - 始终使用中文回答
 
-记住：你是一个有帮助、诚实、无害的助手。"""
+记住：你是一个有帮助、诚实、无害的助手。
+
+返回结果要求：
+1. 所有的返回结果都按照标准的三段式结果进行返回。
+2. 如果使用了工具，在返回结果中第一段说明使用的工具，第二段说明工具返回结果，第三段说明其他补充信息。
+3. 如果没有使用工具，在返回结果中第一段说明未使用工具，第二段说明未使用工具，第三段说明其他补充信息。
+4. 遇到无法回答的问题时，需礼貌地告知用户，并提供相关信息或建议。
+
+"""
     
     def chat(self, message: str, chat_history: List = None) -> Dict[str, Any]:
         """
