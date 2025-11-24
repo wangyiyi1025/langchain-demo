@@ -1,0 +1,258 @@
+import React from 'react'
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, ScatterChart, Scatter,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, Cell
+} from 'recharts'
+
+const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1', '#d084d0', '#ffb366']
+
+function ChartRenderer({ chartConfig }) {
+  if (!chartConfig || !chartConfig.type) {
+    return null
+  }
+
+  const { type, title, data, x_axis, y_axis, label_field, value_field } = chartConfig
+
+  // 如果数据为空，显示提示
+  if (!data || data.length === 0) {
+    return (
+      <div className="chart-container">
+        <h3 className="chart-title">{title || '数据图表'}</h3>
+        <div className="chart-empty">暂无数据</div>
+      </div>
+    )
+  }
+
+  // 渲染表格
+  const renderTable = () => {
+    const columns = Object.keys(data[0])
+    return (
+      <div className="chart-table-container">
+        <h3 className="chart-title">{title || '数据表格'}</h3>
+        <div className="chart-table-wrapper">
+          <table className="chart-table">
+            <thead>
+              <tr>
+                {columns.map((col, idx) => (
+                  <th key={idx}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((row, rowIdx) => (
+                <tr key={rowIdx}>
+                  {columns.map((col, colIdx) => (
+                    <td key={colIdx}>{row[col]}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
+  // 渲染柱状图
+  const renderBarChart = () => (
+    <div className="chart-container">
+      <h3 className="chart-title">{title || '柱状图'}</h3>
+      <ResponsiveContainer width="100%" height={400}>
+        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey={x_axis}
+            angle={-45}
+            textAnchor="end"
+            height={100}
+            interval={0}
+          />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Bar dataKey={y_axis} fill="#8884d8" />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  )
+
+  // 渲染折线图
+  const renderLineChart = () => (
+    <div className="chart-container">
+      <h3 className="chart-title">{title || '折线图'}</h3>
+      <ResponsiveContainer width="100%" height={400}>
+        <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey={x_axis}
+            angle={-45}
+            textAnchor="end"
+            height={100}
+            interval={0}
+          />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Line type="monotone" dataKey={y_axis} stroke="#8884d8" strokeWidth={2} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+
+  // 渲染饼图
+  const renderPieChart = () => {
+    const labelKey = label_field || x_axis
+    const valueKey = value_field || y_axis
+
+    return (
+      <div className="chart-container">
+        <h3 className="chart-title">{title || '饼图'}</h3>
+        <ResponsiveContainer width="100%" height={400}>
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey={valueKey}
+              nameKey={labelKey}
+              cx="50%"
+              cy="50%"
+              outerRadius={120}
+              label={(entry) => `${entry[labelKey]}: ${entry[valueKey]}`}
+            >
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    )
+  }
+
+  // 渲染散点图
+  const renderScatterChart = () => (
+    <div className="chart-container">
+      <h3 className="chart-title">{title || '散点图'}</h3>
+      <ResponsiveContainer width="100%" height={400}>
+        <ScatterChart margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey={x_axis}
+            type="number"
+            name={x_axis}
+            angle={-45}
+            textAnchor="end"
+            height={100}
+          />
+          <YAxis dataKey={y_axis} type="number" name={y_axis} />
+          <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+          <Legend />
+          <Scatter name="数据点" data={data} fill="#8884d8" />
+        </ScatterChart>
+      </ResponsiveContainer>
+    </div>
+  )
+
+  // 渲染面积图
+  const renderAreaChart = () => (
+    <div className="chart-container">
+      <h3 className="chart-title">{title || '面积图'}</h3>
+      <ResponsiveContainer width="100%" height={400}>
+        <AreaChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey={x_axis}
+            angle={-45}
+            textAnchor="end"
+            height={100}
+            interval={0}
+          />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Area type="monotone" dataKey={y_axis} stroke="#8884d8" fill="#8884d8" />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  )
+
+  // 渲染热力图（使用表格样式模拟）
+  const renderHeatmap = () => {
+    // 简化的热力图实现 - 使用颜色深浅表示数值
+    const columns = Object.keys(data[0])
+    const numericColumns = columns.filter(col => typeof data[0][col] === 'number')
+
+    // 计算数值范围用于颜色映射
+    const getColorIntensity = (value, col) => {
+      const values = data.map(row => row[col]).filter(v => typeof v === 'number')
+      const min = Math.min(...values)
+      const max = Math.max(...values)
+      const intensity = (value - min) / (max - min)
+      return `rgba(136, 132, 216, ${0.2 + intensity * 0.6})`
+    }
+
+    return (
+      <div className="chart-container">
+        <h3 className="chart-title">{title || '热力图'}</h3>
+        <div className="chart-table-wrapper">
+          <table className="chart-table heatmap">
+            <thead>
+              <tr>
+                {columns.map((col, idx) => (
+                  <th key={idx}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((row, rowIdx) => (
+                <tr key={rowIdx}>
+                  {columns.map((col, colIdx) => (
+                    <td
+                      key={colIdx}
+                      style={{
+                        backgroundColor: typeof row[col] === 'number'
+                          ? getColorIntensity(row[col], col)
+                          : 'transparent'
+                      }}
+                    >
+                      {row[col]}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
+  // 根据图表类型渲染对应的图表
+  switch (type) {
+    case 'bar':
+      return renderBarChart()
+    case 'line':
+      return renderLineChart()
+    case 'pie':
+      return renderPieChart()
+    case 'scatter':
+      return renderScatterChart()
+    case 'area':
+      return renderAreaChart()
+    case 'table':
+      return renderTable()
+    case 'heatmap':
+      return renderHeatmap()
+    default:
+      return (
+        <div className="chart-container">
+          <h3 className="chart-title">{title || '图表'}</h3>
+          <div className="chart-empty">不支持的图表类型: {type}</div>
+        </div>
+      )
+  }
+}
+
+export default ChartRenderer
