@@ -2,12 +2,17 @@
 ChatBI数据分析Agent - 专门用于数据库查询和分析
 """
 import os
+import sys
 from typing import List, Optional, Dict, Any
 from langchain_community.chat_models import ChatTongyi
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from .base_agent import BaseAgent
-from ..tools.chatbi_tool import chatbi_query, chatbi_get_schema
+
+# 添加项目根目录到路径
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from agents.base_agent import BaseAgent
+from tools.chatbi_tool import chatbi_query, chatbi_get_schema
 
 
 class ChatBIAgent(BaseAgent):
