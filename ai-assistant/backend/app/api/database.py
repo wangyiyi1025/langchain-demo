@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.database_service import get_database_service
 from models.schemas import DatabaseInfo, TableInfo, TableSearchResult
 
-router = APIRouter()
+router = APIRouter(prefix="/database", tags=["数据库"])
 
 
 @router.get("/databases", response_model=List[str])

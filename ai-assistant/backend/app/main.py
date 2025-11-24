@@ -36,7 +36,7 @@ app.add_middleware(
 # 注册路由
 app.include_router(chat.router, prefix=settings.API_PREFIX)
 app.include_router(system.router, prefix=settings.API_PREFIX)
-app.include_router(database.router, prefix=settings.API_PREFIX, tags=["数据库"])
+app.include_router(database.router, prefix=settings.API_PREFIX)
 
 
 @app.get("/")
