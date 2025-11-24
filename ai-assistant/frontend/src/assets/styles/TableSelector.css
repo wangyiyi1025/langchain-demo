@@ -1,0 +1,149 @@
+.table-selector {
+  position: relative;
+  padding: 12px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table-selector-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f9fafb;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  transition: all 0.2s ease;
+}
+
+.table-selector-input-wrapper:focus-within {
+  border-color: #3b82f6;
+  background: #ffffff;
+}
+
+.table-selector-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.table-selector-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: #374151;
+  outline: none;
+}
+
+.table-selector-input::placeholder {
+  color: #9ca3af;
+}
+
+.table-selector-clear {
+  background: #e5e7eb;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  color: #6b7280;
+  transition: all 0.2s ease;
+}
+
+.table-selector-clear:hover {
+  background: #d1d5db;
+  color: #374151;
+}
+
+.table-selector-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 16px;
+  right: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 1000;
+}
+
+.table-selector-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.table-selector-item:last-child {
+  border-bottom: none;
+}
+
+.table-selector-item:hover,
+.table-selector-item.selected {
+  background: #f3f4f6;
+}
+
+.table-selector-item.database {
+  background: #fef3c7;
+}
+
+.table-selector-item.database:hover,
+.table-selector-item.database.selected {
+  background: #fde68a;
+}
+
+.table-selector-item.table:hover,
+.table-selector-item.table.selected {
+  background: #dbeafe;
+}
+
+.item-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.item-content {
+  flex: 1;
+}
+
+.item-display {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  font-family: 'Courier New', monospace;
+}
+
+.item-description {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+/* 滚动条样式 */
+.table-selector-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.table-selector-dropdown::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.table-selector-dropdown::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.table-selector-dropdown::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
