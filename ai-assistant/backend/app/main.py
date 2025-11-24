@@ -13,13 +13,13 @@ from dotenv import load_dotenv
 load_dotenv("../../.env")
 
 from config import settings
-from api import chat, system
+from api import chat, system, database
 
 # 创建FastAPI应用
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="AI智能助手后端API",
+    description="AI智能助手后端API - 支持多Agent和数据分析",
     docs_url="/api/docs",
     redoc_url="/api/redoc"
 )
@@ -36,6 +36,7 @@ app.add_middleware(
 # 注册路由
 app.include_router(chat.router, prefix=settings.API_PREFIX)
 app.include_router(system.router, prefix=settings.API_PREFIX)
+app.include_router(database.router, prefix=settings.API_PREFIX, tags=["数据库"])
 
 
 @app.get("/")

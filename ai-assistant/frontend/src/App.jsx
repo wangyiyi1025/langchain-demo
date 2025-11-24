@@ -1,17 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
 import './assets/styles/main.css'
 
-// 先导入组件，如果失败会报错
+// 导入组件
 import ChatHeader from './components/ChatHeader'
 import ChatMessage from './components/ChatMessage'
 import ChatInput from './components/ChatInput'
 import TypingIndicator from './components/TypingIndicator'
+import AgentSelector from './components/AgentSelector'
+import TableSelector from './components/TableSelector'
+import ContextBar from './components/ContextBar'
 
 function App() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: '你好！我是你的AI助手，可以帮你：\n• 查询当前时间\n• 进行数学计算\n• 搜索网络信息\n• 查询天气\n有什么可以帮到你的吗？',
+      content: '你好！我是你的AI智能助手。\n\n🔹 切换到"ChatBI数据分析助手"可以进行数据库查询和分析\n🔹 切换到"通用聊天助手"可以进行日常对话\n\n请选择一个助手开始使用！',
       timestamp: new Date()
     }
   ])
@@ -19,6 +22,8 @@ function App() {
   const [ws, setWs] = useState(null)
   const [sessionId] = useState(`session_${Date.now()}`)
   const [isConnected, setIsConnected] = useState(false)
+  const [selectedAgent, setSelectedAgent] = useState('chat')  // 当前选择的Agent
+  const [selectedTable, setSelectedTable] = useState(null)  // 当前选择的表
   const messagesEndRef = useRef(null)
 
   // 自动滚动到底部
@@ -131,6 +136,12 @@ function App() {
   }
 
   const handleSendMessage = (message) => {
+    // 如果选择了ChatBI但没有选择表，提示用户
+    if (selectedAgent === 'chatbi' && !selectedTable) {
+      alert('请先选择数据库和表！使用表选择器输入 #数据库名.表名');
+      return;
+    }
+
     // 添加用户消息
     setMessages(prev => [
       ...prev,
@@ -141,12 +152,56 @@ function App() {
       }
     ])
 
-    // 通过WebSocket发送
+    // 通过WebSocket发送，包含agent_type和table_context
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ message }))
+      const payload = {
+        message,
+        agent_type: selectedAgent
+      };
+
+      // 如果选择了表，添加表上下文
+      if (selectedTable && selectedAgent === 'chatbi') {
+        payload.table_context = selectedTable;
+      }
+
+      ws.send(JSON.stringify(payload));
     } else {
       alert('连接已断开，正在重新连接...')
       connectWebSocket()
+    }
+  }
+
+  const handleAgentChange = (agentType) => {
+    setSelectedAgent(agentType);
+
+    // 切换Agent时添加提示消息
+    const agentName = agentType === 'chat' ? '通用聊天助手' : 'ChatBI数据分析助手';
+    const tips = agentType === 'chat'
+      ? '我可以帮你查询时间、进行计算、搜索信息等。'
+      : '我可以帮你分析数据库数据。请先使用表选择器选择要分析的表！';
+
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'assistant',
+        content: `已切换到 ${agentName}。\n\n${tips}`,
+        timestamp: new Date()
+      }
+    ]);
+  }
+
+  const handleTableSelect = (table) => {
+    setSelectedTable(table);
+
+    if (table) {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `已选择表：${table.database}.${table.table}\n\n现在所有对话都将基于这个表进行分析。你可以开始提问了！`,
+          timestamp: new Date()
+        }
+      ]);
     }
   }
 
@@ -175,7 +230,27 @@ function App() {
     <div className="app">
       <div className="chat-container">
         <ChatHeader onClearHistory={handleClearHistory} />
-        
+
+        {/* Agent选择器 */}
+        <AgentSelector
+          selectedAgent={selectedAgent}
+          onAgentChange={handleAgentChange}
+        />
+
+        {/* 表选择器 - 只在ChatBI模式下显示 */}
+        {selectedAgent === 'chatbi' && (
+          <TableSelector
+            onTableSelect={handleTableSelect}
+            selectedTable={selectedTable}
+          />
+        )}
+
+        {/* 上下文显示条 - 只在ChatBI模式且选择了表时显示 */}
+        <ContextBar
+          selectedAgent={selectedAgent}
+          selectedTable={selectedTable}
+        />
+
         <div className="chat-messages">
           {/* 连接状态提示 */}
           {!isConnected && (
@@ -190,14 +265,14 @@ function App() {
               ⚠️ 正在连接后端服务...
             </div>
           )}
-          
+
           {messages.map((message, index) => (
             <ChatMessage key={index} message={message} />
           ))}
           {isTyping && <TypingIndicator />}
           <div ref={messagesEndRef} />
         </div>
-        
+
         <ChatInput onSendMessage={handleSendMessage} />
       </div>
     </div>

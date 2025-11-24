@@ -1,11 +1,10 @@
 """
-聊天 Agent
+通用聊天Agent - 不包含数据分析功能
 """
 from langchain_community.chat_models.tongyi import ChatTongyi
 from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.messages import HumanMessage, AIMessage
-from typing import List, Dict, Any
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from typing import List, Dict, Any, Optional
 import sys
 import os
 
@@ -17,43 +16,42 @@ from tools.time_tool import get_current_time, get_date_info
 from tools.calculator_tool import calculate
 from tools.search_tool import search_web
 from tools.wangwei_info import wangwei_info
-from tools.chatbi_tool import chatbi_query, chatbi_get_schema
+from .base_agent import BaseAgent
 
 
-
-class ChatAgent:
+class ChatAgent(BaseAgent):
     """聊天Agent类"""
     
     def __init__(self):
         """初始化Agent"""
+        super().__init__()
+
         self.llm = ChatTongyi(
             model=settings.QWEN_MODEL,
             temperature=settings.QWEN_TEMPERATURE,
             max_tokens=settings.QWEN_MAX_TOKENS,
         )
-        
-        # 定义可用工具
+
+        # 定义通用工具（移除了ChatBI工具）
         self.tools = [
             get_current_time,
             get_date_info,
             calculate,
             search_web,
             wangwei_info,
-            chatbi_query,
-            chatbi_get_schema,
         ]
-        
+
         # 创建提示词模板
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", self._get_system_prompt()),
-            ("placeholder", "{chat_history}"),
+            MessagesPlaceholder(variable_name="chat_history", optional=True),
             ("human", "{input}"),
-            ("placeholder", "{agent_scratchpad}"),
+            MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
-        
+
         # 创建Agent
         agent = create_tool_calling_agent(self.llm, self.tools, self.prompt)
-        
+
         # 创建Agent执行器
         self.agent_executor = AgentExecutor(
             agent=agent,
@@ -62,10 +60,19 @@ class ChatAgent:
             handle_parsing_errors=True,
             max_iterations=settings.AGENT_MAX_ITERATIONS,
         )
+
+    def get_agent_type(self) -> str:
+        return "chat"
+
+    def get_agent_name(self) -> str:
+        return "通用聊天助手"
+
+    def get_agent_description(self) -> str:
+        return "智能聊天助手，可以帮助您查询时间、进行计算、搜索信息等。适用于日常对话和通用任务。"
     
     def _get_system_prompt(self) -> str:
         """获取系统提示词"""
-        return """你是一个智能助手，名字叫"小智"。你可以帮助用户完成各种任务。
+        return """你是一个智能助手，名字叫"小智"。你可以帮助用户完成各种日常任务和通用查询。
 
 你拥有以下工具：
 
@@ -80,16 +87,13 @@ class ChatAgent:
    - search_web: 搜索网络信息
    - wangwei_info: 查询王唯信息
 
-4. **数据分析（ChatBI）**
-   - chatbi_query: 使用自然语言查询Starrocks数据库，自动生成SQL并返回分析结果和可视化建议
-   - chatbi_get_schema: 获取数据库表结构信息，帮助了解可用的数据表和字段
-
 使用指南：
 - 根据用户需求选择合适的工具
 - 如果一个工具不够，可以组合使用多个工具
 - 用友好、专业的语气回答问题
 - 如果不确定，可以询问用户更多信息
 - 始终使用中文回答
+- 如果用户需要进行数据库查询或数据分析，请建议他们切换到ChatBI数据分析助手
 
 记住：你是一个有帮助、诚实、无害的助手。
 
@@ -101,47 +105,90 @@ class ChatAgent:
 
 """
     
-    def chat(self, message: str, chat_history: List = None) -> Dict[str, Any]:
+    def invoke(self, message: str, chat_history: Optional[List] = None, **kwargs) -> str:
         """
-        处理对话
-        
+        同步调用Agent处理消息
         Args:
             message: 用户消息
             chat_history: 对话历史
-        
+            **kwargs: 其他参数
+        Returns:
+            str: Agent响应
+        """
+        # 格式化对话历史
+        formatted_history = []
+        if chat_history:
+            formatted_history = self.format_chat_history(chat_history[-6:])  # 只保留最近6条
+
+        try:
+            result = self.agent_executor.invoke({
+                "input": message,
+                "chat_history": formatted_history
+            })
+            return result.get("output", "抱歉，我无法生成回复。")
+        except Exception as e:
+            return f"处理您的请求时发生错误: {str(e)}"
+
+    def stream(self, message: str, chat_history: Optional[List] = None, **kwargs):
+        """
+        流式调用Agent处理消息
+        Args:
+            message: 用户消息
+            chat_history: 对话历史
+            **kwargs: 其他参数
+        Yields:
+            str: Agent响应片段
+        """
+        # 格式化对话历史
+        formatted_history = []
+        if chat_history:
+            formatted_history = self.format_chat_history(chat_history[-6:])
+
+        try:
+            result = self.agent_executor.invoke({
+                "input": message,
+                "chat_history": formatted_history
+            })
+
+            response = result.get("output", "抱歉，我无法生成回复。")
+
+            # 模拟流式输出
+            chunk_size = 5
+            for i in range(0, len(response), chunk_size):
+                yield response[i:i + chunk_size]
+
+        except Exception as e:
+            yield f"处理您的请求时发生错误: {str(e)}"
+
+    def chat(self, message: str, chat_history: List = None) -> Dict[str, Any]:
+        """
+        处理对话（兼容旧接口）
+        Args:
+            message: 用户消息
+            chat_history: 对话历史
         Returns:
             包含回答和中间步骤的字典
         """
         if chat_history is None:
             chat_history = []
-        
+
         try:
-            # 只保留最近的对话历史（避免上下文过长）
-            recent_history = chat_history[-6:] if len(chat_history) > 6 else chat_history
-            
-            # 调用Agent
-            result = self.agent_executor.invoke({
-                "input": message,
-                "chat_history": recent_history
-            })
-            
+            response = self.invoke(message, chat_history)
             return {
                 "success": True,
-                "output": result['output'],
-                "intermediate_steps": result.get('intermediate_steps', [])
+                "output": response,
+                "intermediate_steps": []
             }
-            
         except Exception as e:
             return {
                 "success": False,
                 "output": f"抱歉，处理您的请求时出现错误：{str(e)}",
                 "error": str(e)
             }
-    
+
     def get_tool_descriptions(self) -> List[Dict[str, str]]:
         """
         获取所有工具的描述
-        
         Returns:
             工具描述列表
         """

@@ -48,3 +48,38 @@ class ErrorResponse(BaseModel):
     success: bool = False
     error: str
     detail: Optional[str] = None
+
+
+class DatabaseInfo(BaseModel):
+    """数据库信息模型"""
+    name: str = Field(..., description="数据库名称")
+    table_count: Optional[int] = Field(None, description="表数量")
+
+
+class TableInfo(BaseModel):
+    """表信息模型"""
+    database: str = Field(..., description="数据库名称")
+    table: str = Field(..., description="表名称")
+    full_name: str = Field(..., description="完整表名 (database.table)")
+
+
+class TableSearchResult(BaseModel):
+    """表搜索结果模型"""
+    database: str = Field(..., description="数据库名称")
+    table: str = Field(..., description="表名称")
+    full_name: str = Field(..., description="完整表名 (database.table)")
+
+
+class AgentInfo(BaseModel):
+    """Agent信息模型"""
+    type: str = Field(..., description="Agent类型标识")
+    name: str = Field(..., description="Agent名称")
+    description: str = Field(..., description="Agent描述")
+
+
+class ChatRequestWithAgent(BaseModel):
+    """带Agent选择的聊天请求模型"""
+    message: str = Field(..., description="用户消息", min_length=1)
+    session_id: Optional[str] = Field(None, description="会话ID")
+    agent_type: str = Field("chat", description="Agent类型")
+    table_context: Optional[dict] = Field(None, description="表上下文 {database, table}")
