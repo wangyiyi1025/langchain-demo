@@ -3,8 +3,13 @@
 """
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Optional
-from ..services.database_service import get_database_service
-from ..models.schemas import DatabaseInfo, TableInfo, TableSearchResult
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from services.database_service import get_database_service
+from models.schemas import DatabaseInfo, TableInfo, TableSearchResult
 
 router = APIRouter()
 
