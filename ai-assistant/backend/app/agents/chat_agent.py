@@ -17,6 +17,7 @@ from tools.time_tool import get_current_time, get_date_info
 from tools.calculator_tool import calculate
 from tools.search_tool import search_web
 from tools.wangwei_info import wangwei_info
+from tools.chatbi_tool import chatbi_query, chatbi_get_schema
 
 
 
@@ -38,6 +39,8 @@ class ChatAgent:
             calculate,
             search_web,
             wangwei_info,
+            chatbi_query,
+            chatbi_get_schema,
         ]
         
         # 创建提示词模板
@@ -76,6 +79,10 @@ class ChatAgent:
 3. **信息查询**
    - search_web: 搜索网络信息
    - wangwei_info: 查询王唯信息
+
+4. **数据分析（ChatBI）**
+   - chatbi_query: 使用自然语言查询Starrocks数据库，自动生成SQL并返回分析结果和可视化建议
+   - chatbi_get_schema: 获取数据库表结构信息，帮助了解可用的数据表和字段
 
 使用指南：
 - 根据用户需求选择合适的工具
