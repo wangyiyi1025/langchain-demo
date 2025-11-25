@@ -6,7 +6,7 @@ from typing import List, Dict, Optional
 from app.services.database_service import get_database_service
 from app.models.schemas import DatabaseInfo, TableInfo, TableSearchResult
 
-router = APIRouter()
+router = APIRouter(prefix="/database", tags=["数据库"])
 
 
 @router.get("/databases", response_model=List[str])
