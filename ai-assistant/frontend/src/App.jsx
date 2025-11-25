@@ -183,6 +183,18 @@ function App() {
     }
   }
 
+  const handleClearTable = () => {
+    setSelectedTable(null);
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'assistant',
+        content: '已取消表选择。请重新选择要分析的表。',
+        timestamp: new Date()
+      }
+    ]);
+  }
+
   const handleClearHistory = async () => {
     try {
       const response = await fetch(`http://localhost:8000/api/v1/chat/clear/${sessionId}`, {
@@ -223,16 +235,19 @@ function App() {
 
       {/* 主内容区 */}
       <div className="main-content">
-        {/* 表选择器 */}
-        <TableSelector
-          onTableSelect={handleTableSelect}
-          selectedTable={selectedTable}
-        />
+        {/* 表选择器 - 只在未选择表时显示 */}
+        {!selectedTable && (
+          <TableSelector
+            onTableSelect={handleTableSelect}
+            selectedTable={selectedTable}
+          />
+        )}
 
         {/* 上下文显示条 - 只在选择了表时显示 */}
         <ContextBar
           selectedAgent="chatbi"
           selectedTable={selectedTable}
+          onClear={handleClearTable}
         />
 
         {/* 消息区域 */}
