@@ -4,10 +4,10 @@
 import jwt
 import uuid
 import base64
+import bcrypt
 from io import BytesIO
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-from passlib.hash import bcrypt
 from PIL import Image, ImageDraw, ImageFont
 import random
 import string
@@ -204,7 +204,7 @@ class AuthService:
         user = result[0]
 
         # 验证密码
-        if not bcrypt.verify(password, user['password_hash']):
+        if not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
             return None
 
         return {

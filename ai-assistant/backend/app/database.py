@@ -208,7 +208,7 @@ class DatabaseConnection:
 
     def _create_default_admin(self):
         """创建默认管理员账号"""
-        from passlib.hash import bcrypt
+        import bcrypt
 
         # 检查管理员是否已存在
         with self.get_cursor() as cursor:
@@ -217,7 +217,7 @@ class DatabaseConnection:
                 return  # 管理员已存在
 
         # 创建管理员账号
-        password_hash = bcrypt.hash("123456")
+        password_hash = bcrypt.hashpw("123456".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         with self.get_cursor(commit=True) as cursor:
             cursor.execute(
                 "INSERT INTO users (email, password_hash) VALUES (%s, %s)",
