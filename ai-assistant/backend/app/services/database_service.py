@@ -64,15 +64,20 @@ class DatabaseService:
         """
         if not self.connection:
             if not self.connect():
+                print("数据库连接失败，无法获取数据库列表")
                 return []
 
         try:
             with self.connection.cursor() as cursor:
                 cursor.execute("SHOW DATABASES")
                 results = cursor.fetchall()
+                print(f"数据库查询返回结果数: {len(results)}")
+                print(f"所有数据库: {[row['Database'] for row in results]}")
+
                 # 过滤掉系统数据库
                 system_dbs = {'information_schema', 'mysql', 'performance_schema', 'sys', '_statistics_'}
                 databases = [row['Database'] for row in results if row['Database'] not in system_dbs]
+                print(f"过滤后的用户数据库: {databases}")
                 return sorted(databases)
         except Exception as e:
             print(f"获取数据库列表失败: {str(e)}")
@@ -88,15 +93,19 @@ class DatabaseService:
         """
         if not self.connection:
             if not self.connect():
+                print(f"数据库连接失败，无法获取 {database} 的表列表")
                 return []
 
         try:
             with self.connection.cursor() as cursor:
                 cursor.execute(f"SHOW TABLES FROM `{database}`")
                 results = cursor.fetchall()
+                print(f"数据库 {database} 的表查询返回结果数: {len(results)}")
+
                 # 根据不同数据库的返回格式提取表名
                 key = f'Tables_in_{database}'
                 tables = [row[key] for row in results if key in row]
+                print(f"数据库 {database} 的表列表: {tables}")
                 return sorted(tables)
         except Exception as e:
             print(f"获取表列表失败: {str(e)}")

@@ -62,23 +62,37 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
       if (parts.length === 1) {
         // 只输入了数据库名的一部分
         const dbQuery = parts[0];
-        Object.keys(metadata).forEach(db => {
-          if (db.toLowerCase().includes(dbQuery)) {
+
+        // 如果只输入了 '#'，显示所有数据库
+        if (dbQuery === '') {
+          Object.keys(metadata).forEach(db => {
             newSuggestions.push({
               type: 'database',
               display: `#${db}.`,
               database: db,
               description: `数据库 (${metadata[db].length} 个表)`
             });
-          }
-        });
+          });
+        } else {
+          // 搜索匹配的数据库
+          Object.keys(metadata).forEach(db => {
+            if (db.toLowerCase().includes(dbQuery)) {
+              newSuggestions.push({
+                type: 'database',
+                display: `#${db}.`,
+                database: db,
+                description: `数据库 (${metadata[db].length} 个表)`
+              });
+            }
+          });
+        }
       } else if (parts.length === 2) {
         // 输入了数据库名和表名的一部分
         const dbName = parts[0];
         const tableQuery = parts[1];
 
         Object.keys(metadata).forEach(db => {
-          if (db.toLowerCase().includes(dbName.toLowerCase())) {
+          if (db.toLowerCase() === dbName.toLowerCase() || db.toLowerCase().includes(dbName.toLowerCase())) {
             const tables = metadata[db];
             tables.forEach(tableInfo => {
               const tableName = tableInfo.name;
