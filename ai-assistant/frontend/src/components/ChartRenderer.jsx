@@ -14,6 +14,11 @@ function ChartRenderer({ chartConfig }) {
 
   const { type, title, data, x_axis, y_axis, label_field, value_field } = chartConfig
 
+  // 调试信息
+  console.log('ChartRenderer - chartConfig:', chartConfig)
+  console.log('ChartRenderer - data:', data)
+  console.log('ChartRenderer - x_axis:', x_axis, 'y_axis:', y_axis)
+
   // 如果数据为空，显示提示
   if (!data || data.length === 0) {
     return (
@@ -22,6 +27,21 @@ function ChartRenderer({ chartConfig }) {
         <div className="chart-empty">暂无数据</div>
       </div>
     )
+  }
+
+  // 验证数据字段
+  if (data.length > 0) {
+    const firstRow = data[0]
+    console.log('ChartRenderer - 第一行数据:', firstRow)
+    console.log('ChartRenderer - 数据字段:', Object.keys(firstRow))
+
+    // 检查必需的字段是否存在
+    if (x_axis && !(x_axis in firstRow)) {
+      console.warn(`警告: x_axis 字段 "${x_axis}" 不存在于数据中`)
+    }
+    if (y_axis && !(y_axis in firstRow)) {
+      console.warn(`警告: y_axis 字段 "${y_axis}" 不存在于数据中`)
+    }
   }
 
   // 渲染表格
@@ -55,50 +75,80 @@ function ChartRenderer({ chartConfig }) {
   }
 
   // 渲染柱状图
-  const renderBarChart = () => (
-    <div className="chart-container">
-      <h3 className="chart-title">{title || '柱状图'}</h3>
-      <ResponsiveContainer width="100%" height={400}>
-        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey={x_axis}
-            angle={-45}
-            textAnchor="end"
-            height={100}
-            interval={0}
-          />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey={y_axis} fill="#8884d8" />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  )
+  const renderBarChart = () => {
+    // 格式化日期显示
+    const formatXAxis = (value) => {
+      if (!value) return ''
+      // 如果是 ISO 日期格式，只显示日期部分
+      if (typeof value === 'string' && value.includes('T')) {
+        return value.split('T')[0]
+      }
+      return value
+    }
+
+    return (
+      <div className="chart-container">
+        <h3 className="chart-title">{title || '柱状图'}</h3>
+        <ResponsiveContainer width="100%" height={400}>
+          <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey={x_axis}
+              angle={-45}
+              textAnchor="end"
+              height={100}
+              interval={0}
+              tickFormatter={formatXAxis}
+            />
+            <YAxis />
+            <Tooltip
+              labelFormatter={formatXAxis}
+              formatter={(value) => [value, y_axis]}
+            />
+            <Legend />
+            <Bar dataKey={y_axis} fill="#8884d8" name={y_axis || '数值'} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    )
+  }
 
   // 渲染折线图
-  const renderLineChart = () => (
-    <div className="chart-container">
-      <h3 className="chart-title">{title || '折线图'}</h3>
-      <ResponsiveContainer width="100%" height={400}>
-        <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey={x_axis}
-            angle={-45}
-            textAnchor="end"
-            height={100}
-            interval={0}
-          />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Line type="monotone" dataKey={y_axis} stroke="#8884d8" strokeWidth={2} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  )
+  const renderLineChart = () => {
+    const formatXAxis = (value) => {
+      if (!value) return ''
+      if (typeof value === 'string' && value.includes('T')) {
+        return value.split('T')[0]
+      }
+      return value
+    }
+
+    return (
+      <div className="chart-container">
+        <h3 className="chart-title">{title || '折线图'}</h3>
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey={x_axis}
+              angle={-45}
+              textAnchor="end"
+              height={100}
+              interval={0}
+              tickFormatter={formatXAxis}
+            />
+            <YAxis />
+            <Tooltip
+              labelFormatter={formatXAxis}
+              formatter={(value) => [value, y_axis]}
+            />
+            <Legend />
+            <Line type="monotone" dataKey={y_axis} stroke="#8884d8" strokeWidth={2} name={y_axis || '数值'} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    )
+  }
 
   // 渲染饼图
   const renderPieChart = () => {
@@ -156,27 +206,41 @@ function ChartRenderer({ chartConfig }) {
   )
 
   // 渲染面积图
-  const renderAreaChart = () => (
-    <div className="chart-container">
-      <h3 className="chart-title">{title || '面积图'}</h3>
-      <ResponsiveContainer width="100%" height={400}>
-        <AreaChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey={x_axis}
-            angle={-45}
-            textAnchor="end"
-            height={100}
-            interval={0}
-          />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Area type="monotone" dataKey={y_axis} stroke="#8884d8" fill="#8884d8" />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  )
+  const renderAreaChart = () => {
+    const formatXAxis = (value) => {
+      if (!value) return ''
+      if (typeof value === 'string' && value.includes('T')) {
+        return value.split('T')[0]
+      }
+      return value
+    }
+
+    return (
+      <div className="chart-container">
+        <h3 className="chart-title">{title || '面积图'}</h3>
+        <ResponsiveContainer width="100%" height={400}>
+          <AreaChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey={x_axis}
+              angle={-45}
+              textAnchor="end"
+              height={100}
+              interval={0}
+              tickFormatter={formatXAxis}
+            />
+            <YAxis />
+            <Tooltip
+              labelFormatter={formatXAxis}
+              formatter={(value) => [value, y_axis]}
+            />
+            <Legend />
+            <Area type="monotone" dataKey={y_axis} stroke="#8884d8" fill="#8884d8" name={y_axis || '数值'} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    )
+  }
 
   // 渲染热力图（使用表格样式模拟）
   const renderHeatmap = () => {
