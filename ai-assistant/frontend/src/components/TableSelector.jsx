@@ -40,7 +40,7 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
 
   const fetchMetadata = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/v1/database/metadata');
+      const response = await fetch('http://localhost:8000/api/v1/database/metadata-with-comments');
       const data = await response.json();
       setMetadata(data);
     } catch (error) {
@@ -80,14 +80,19 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
         Object.keys(metadata).forEach(db => {
           if (db.toLowerCase().includes(dbName.toLowerCase())) {
             const tables = metadata[db];
-            tables.forEach(table => {
-              if (table.toLowerCase().includes(tableQuery)) {
+            tables.forEach(tableInfo => {
+              const tableName = tableInfo.name;
+              const tableComment = tableInfo.comment || '';
+              // 支持按表名或注释搜索
+              if (tableName.toLowerCase().includes(tableQuery) ||
+                  tableComment.toLowerCase().includes(tableQuery)) {
                 newSuggestions.push({
                   type: 'table',
-                  display: `#${db}.${table}`,
+                  display: `#${db}.${tableName}`,
                   database: db,
-                  table: table,
-                  description: `${db}.${table}`
+                  table: tableName,
+                  comment: tableComment,
+                  description: tableComment || `${db}.${tableName}`
                 });
               }
             });
@@ -113,12 +118,13 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
       // 自动显示该数据库下的所有表
       const dbName = suggestion.database;
       const tables = metadata[dbName] || [];
-      const newSuggestions = tables.map(table => ({
+      const newSuggestions = tables.map(tableInfo => ({
         type: 'table',
-        display: `#${dbName}.${table}`,
+        display: `#${dbName}.${tableInfo.name}`,
         database: dbName,
-        table: table,
-        description: `${dbName}.${table}`
+        table: tableInfo.name,
+        comment: tableInfo.comment || '',
+        description: tableInfo.comment || `${dbName}.${tableInfo.name}`
       }));
 
       setSuggestions(newSuggestions.slice(0, 10));
@@ -200,8 +206,17 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
                 {suggestion.type === 'database' ? '🗄️' : '📋'}
               </span>
               <div className="item-content">
-                <div className="item-display">{suggestion.display}</div>
-                <div className="item-description">{suggestion.description}</div>
+                {suggestion.type === 'table' && suggestion.comment ? (
+                  <>
+                    <div className="item-display">{suggestion.comment}</div>
+                    <div className="item-description">{suggestion.table}</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="item-display">{suggestion.display}</div>
+                    <div className="item-description">{suggestion.description}</div>
+                  </>
+                )}
               </div>
             </div>
           ))}

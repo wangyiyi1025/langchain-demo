@@ -74,6 +74,21 @@ async def get_all_metadata():
         raise HTTPException(status_code=500, detail=f"获取元数据失败: {str(e)}")
 
 
+@router.get("/metadata-with-comments", response_model=Dict[str, List[Dict[str, str]]])
+async def get_all_metadata_with_comments():
+    """
+    获取所有数据库及其表的元数据（包含注释）
+    Returns:
+        Dict[str, List[Dict]]: {数据库名: [{"name": "表名", "comment": "注释"}]}
+    """
+    try:
+        db_service = get_database_service()
+        metadata = db_service.get_all_metadata_with_comments()
+        return metadata
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取元数据失败: {str(e)}")
+
+
 @router.get("/search/tables")
 async def search_tables(keyword: str = Query(..., description="搜索关键字")):
     """

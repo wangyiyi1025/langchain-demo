@@ -124,6 +124,33 @@ class DatabaseService:
             print(f"获取表结构失败: {str(e)}")
             return []
 
+    def get_tables_with_comments(self, database: str) -> List[Dict[str, str]]:
+        """
+        获取指定数据库的所有表及其注释
+        Args:
+            database: 数据库名称
+        Returns:
+            List[Dict]: [{"name": "table_name", "comment": "table_comment"}]
+        """
+        if not self.connection:
+            if not self.connect():
+                return []
+
+        try:
+            with self.connection.cursor() as cursor:
+                query = """
+                    SELECT TABLE_NAME as name, TABLE_COMMENT as comment
+                    FROM information_schema.TABLES
+                    WHERE TABLE_SCHEMA = %s
+                    ORDER BY TABLE_NAME
+                """
+                cursor.execute(query, (database,))
+                results = cursor.fetchall()
+                return results
+        except Exception as e:
+            print(f"获取表注释失败: {str(e)}")
+            return []
+
     def get_all_metadata(self) -> Dict[str, List[str]]:
         """
         获取所有数据库及其表的元数据
@@ -135,6 +162,22 @@ class DatabaseService:
 
         for db in databases:
             tables = self.get_tables(db)
+            if tables:  # 只包含有表的数据库
+                metadata[db] = tables
+
+        return metadata
+
+    def get_all_metadata_with_comments(self) -> Dict[str, List[Dict[str, str]]]:
+        """
+        获取所有数据库及其表的元数据（包含注释）
+        Returns:
+            Dict[str, List[Dict]]: {数据库名: [{"name": "表名", "comment": "注释"}]}
+        """
+        metadata = {}
+        databases = self.get_databases()
+
+        for db in databases:
+            tables = self.get_tables_with_comments(db)
             if tables:  # 只包含有表的数据库
                 metadata[db] = tables
 
