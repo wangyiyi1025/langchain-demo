@@ -14,11 +14,6 @@ function ChartRenderer({ chartConfig }) {
 
   const { type, title, data, x_axis, y_axis, label_field, value_field } = chartConfig
 
-  // 调试信息
-  console.log('ChartRenderer - chartConfig:', chartConfig)
-  console.log('ChartRenderer - data:', data)
-  console.log('ChartRenderer - x_axis:', x_axis, 'y_axis:', y_axis)
-
   // 如果数据为空，显示提示
   if (!data || data.length === 0) {
     return (
@@ -27,21 +22,6 @@ function ChartRenderer({ chartConfig }) {
         <div className="chart-empty">暂无数据</div>
       </div>
     )
-  }
-
-  // 验证数据字段
-  if (data.length > 0) {
-    const firstRow = data[0]
-    console.log('ChartRenderer - 第一行数据:', firstRow)
-    console.log('ChartRenderer - 数据字段:', Object.keys(firstRow))
-
-    // 检查必需的字段是否存在
-    if (x_axis && !(x_axis in firstRow)) {
-      console.warn(`警告: x_axis 字段 "${x_axis}" 不存在于数据中`)
-    }
-    if (y_axis && !(y_axis in firstRow)) {
-      console.warn(`警告: y_axis 字段 "${y_axis}" 不存在于数据中`)
-    }
   }
 
   // 渲染表格
