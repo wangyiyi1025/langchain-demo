@@ -155,9 +155,9 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
       }));
 
       setSuggestions(newSuggestions.slice(0, 10));
-      setShowDropdown(newSuggestions.length > 0);
+      setShowDropdown(true); // 明确设置为 true
       setSelectedIndex(0);
-      inputRef.current.focus();
+      // 移除 focus() 调用，避免触发 onFocus 事件导致状态混乱
     } else {
       // 如果点击的是表，选择该表
       setInputValue(suggestion.display);
