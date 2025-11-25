@@ -2,7 +2,12 @@
 Agent管理器 - 负责管理所有Agent实例
 """
 from typing import Dict, List, Optional
-from .base_agent import BaseAgent
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from agents.base_agent import BaseAgent
 
 
 class AgentManager:
