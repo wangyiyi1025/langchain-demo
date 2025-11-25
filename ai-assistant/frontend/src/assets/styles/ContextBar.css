@@ -63,10 +63,42 @@
   font-style: italic;
 }
 
+.context-clear-btn {
+  background: rgba(239, 68, 68, 0.1);
+  border: none;
+  color: #dc2626;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.context-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: scale(1.1);
+}
+
+.context-clear-btn:active {
+  transform: scale(0.95);
+}
+
 @media (max-width: 768px) {
   .context-bar {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+  }
+
+  .context-clear-btn {
+    position: absolute;
+    right: 16px;
+    top: 12px;
   }
 }

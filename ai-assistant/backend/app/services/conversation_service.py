@@ -8,13 +8,12 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from app.agents.chat_agent import ChatAgent
 from app.agents.chatbi_agent import ChatBIAgent
 from app.agents.agent_manager import agent_manager
 
 
 class ConversationService:
-    """对话服务类 - 支持多Agent"""
+    """对话服务类 - 智慧报表数据助手"""
 
     def __init__(self):
         """初始化服务"""
@@ -26,11 +25,7 @@ class ConversationService:
 
     def _initialize_agents(self):
         """初始化并注册所有Agent"""
-        # 注册通用聊天Agent
-        chat_agent = ChatAgent()
-        agent_manager.register_agent(chat_agent)
-
-        # 注册ChatBI数据分析Agent
+        # 注册智慧报表数据助手（ChatBI）
         chatbi_agent = ChatBIAgent()
         agent_manager.register_agent(chatbi_agent)
     
@@ -239,11 +234,11 @@ class ConversationService:
 
     def get_tools_info(self) -> List[Dict]:
         """
-        获取默认聊天Agent的工具信息（兼容旧接口）
+        获取智慧报表数据助手的工具信息
         Returns:
             工具列表
         """
-        agent = agent_manager.get_agent("chat")
+        agent = agent_manager.get_agent("chatbi")
         if agent and hasattr(agent, 'get_tool_descriptions'):
             return agent.get_tool_descriptions()
         return []

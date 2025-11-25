@@ -2,11 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import './assets/styles/main.css'
 
 // 导入组件
-import ChatHeader from './components/ChatHeader'
 import ChatMessage from './components/ChatMessage'
 import ChatInput from './components/ChatInput'
 import TypingIndicator from './components/TypingIndicator'
-import AgentSelector from './components/AgentSelector'
 import TableSelector from './components/TableSelector'
 import ContextBar from './components/ContextBar'
 
@@ -14,7 +12,7 @@ function App() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: '你好！我是你的AI智能助手。\n\n🔹 切换到"ChatBI数据分析助手"可以进行数据库查询和分析\n🔹 切换到"通用聊天助手"可以进行日常对话\n\n请选择一个助手开始使用！',
+      content: '你好！我是智慧报表数据助手。\n\n我可以帮你分析数据库数据。请先使用表选择器选择要分析的表！',
       timestamp: new Date()
     }
   ])
@@ -22,7 +20,6 @@ function App() {
   const [ws, setWs] = useState(null)
   const [sessionId] = useState(`session_${Date.now()}`)
   const [isConnected, setIsConnected] = useState(false)
-  const [selectedAgent, setSelectedAgent] = useState('chat')  // 当前选择的Agent
   const [selectedTable, setSelectedTable] = useState(null)  // 当前选择的表
   const messagesEndRef = useRef(null)
 
@@ -136,9 +133,9 @@ function App() {
   }
 
   const handleSendMessage = (message) => {
-    // 如果选择了ChatBI但没有选择表，提示用户
-    if (selectedAgent === 'chatbi' && !selectedTable) {
-      alert('请先选择数据库和表！使用表选择器输入 #数据库名.表名');
+    // 如果没有选择表，提示用户
+    if (!selectedTable) {
+      alert('请先选择数据库和表！');
       return;
     }
 
@@ -156,38 +153,15 @@ function App() {
     if (ws && ws.readyState === WebSocket.OPEN) {
       const payload = {
         message,
-        agent_type: selectedAgent
+        agent_type: 'chatbi',  // 固定使用chatbi
+        table_context: selectedTable
       };
-
-      // 如果选择了表，添加表上下文
-      if (selectedTable && selectedAgent === 'chatbi') {
-        payload.table_context = selectedTable;
-      }
 
       ws.send(JSON.stringify(payload));
     } else {
       alert('连接已断开，正在重新连接...')
       connectWebSocket()
     }
-  }
-
-  const handleAgentChange = (agentType) => {
-    setSelectedAgent(agentType);
-
-    // 切换Agent时添加提示消息
-    const agentName = agentType === 'chat' ? '通用聊天助手' : 'ChatBI数据分析助手';
-    const tips = agentType === 'chat'
-      ? '我可以帮你查询时间、进行计算、搜索信息等。'
-      : '我可以帮你分析数据库数据。请先使用表选择器选择要分析的表！';
-
-    setMessages(prev => [
-      ...prev,
-      {
-        role: 'assistant',
-        content: `已切换到 ${agentName}。\n\n${tips}`,
-        timestamp: new Date()
-      }
-    ]);
   }
 
   const handleTableSelect = (table) => {
@@ -209,20 +183,34 @@ function App() {
     }
   }
 
+  const handleClearTable = () => {
+    setSelectedTable(null);
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'assistant',
+        content: '已取消表选择。请重新选择要分析的表。',
+        timestamp: new Date()
+      }
+    ]);
+  }
+
   const handleClearHistory = async () => {
     try {
       const response = await fetch(`http://localhost:8000/api/v1/chat/clear/${sessionId}`, {
         method: 'DELETE'
       })
-      
+
       if (response.ok) {
         setMessages([
           {
             role: 'assistant',
-            content: '对话历史已清除，让我们重新开始吧！',
+            content: '对话历史已清除。请选择要分析的表，然后开始提问！',
             timestamp: new Date()
           }
         ])
+        // 清除选择的表
+        setSelectedTable(null)
       }
     } catch (error) {
       console.error('清除历史失败:', error)
@@ -232,29 +220,37 @@ function App() {
 
   return (
     <div className="app">
-      <div className="chat-container">
-        <ChatHeader onClearHistory={handleClearHistory} />
+      {/* 侧边栏 */}
+      <div className="sidebar">
+        <div className="sidebar-header">
+          <h1>📊 智慧报表数据助手</h1>
+        </div>
+        <div className="sidebar-content">
+          <button className="clear-btn" onClick={handleClearHistory}>
+            清除历史
+          </button>
+          {/* 未来可以在这里添加历史会话列表 */}
+        </div>
+      </div>
 
-        {/* Agent选择器 */}
-        <AgentSelector
-          selectedAgent={selectedAgent}
-          onAgentChange={handleAgentChange}
-        />
-
-        {/* 表选择器 - 只在ChatBI模式下显示 */}
-        {selectedAgent === 'chatbi' && (
+      {/* 主内容区 */}
+      <div className="main-content">
+        {/* 表选择器 - 只在未选择表时显示 */}
+        {!selectedTable && (
           <TableSelector
             onTableSelect={handleTableSelect}
             selectedTable={selectedTable}
           />
         )}
 
-        {/* 上下文显示条 - 只在ChatBI模式且选择了表时显示 */}
+        {/* 上下文显示条 - 只在选择了表时显示 */}
         <ContextBar
-          selectedAgent={selectedAgent}
+          selectedAgent="chatbi"
           selectedTable={selectedTable}
+          onClear={handleClearTable}
         />
 
+        {/* 消息区域 */}
         <div className="chat-messages">
           {/* 连接状态提示 */}
           {!isConnected && (
@@ -277,6 +273,7 @@ function App() {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* 输入区域 */}
         <ChatInput onSendMessage={handleSendMessage} />
       </div>
     </div>

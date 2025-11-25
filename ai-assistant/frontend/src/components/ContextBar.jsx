@@ -1,7 +1,7 @@
 import React from 'react';
 import '../assets/styles/ContextBar.css';
 
-const ContextBar = ({ selectedAgent, selectedTable }) => {
+const ContextBar = ({ selectedAgent, selectedTable, onClear }) => {
   if (!selectedTable || selectedAgent !== 'chatbi') {
     return null;
   }
@@ -20,9 +20,9 @@ const ContextBar = ({ selectedAgent, selectedTable }) => {
           </span>
         )}
       </div>
-      <div className="context-hint">
-        所有对话将基于此表进行分析
-      </div>
+      <button className="context-clear-btn" onClick={onClear} title="重新选择表">
+        ✕
+      </button>
     </div>
   );
 };

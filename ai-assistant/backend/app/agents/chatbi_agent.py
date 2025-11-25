@@ -59,14 +59,14 @@ class ChatBIAgent(BaseAgent):
         return "chatbi"
 
     def get_agent_name(self) -> str:
-        return "ChatBI数据分析助手"
+        return "智慧报表数据助手"
 
     def get_agent_description(self) -> str:
         return "专门用于数据库查询、数据分析和可视化的智能助手。支持自然语言转SQL、数据分析和图表推荐。"
 
     def _get_system_prompt(self) -> str:
         """获取ChatBI专用的系统提示词"""
-        return """你是ChatBI数据分析助手，专门帮助用户进行数据库查询和数据分析。
+        return """你是智慧报表数据助手，专门帮助用户进行数据库查询和数据分析。
 
 ## 你的核心能力：
 1. **数据库查询**: 将自然语言转换为SQL查询，获取数据
