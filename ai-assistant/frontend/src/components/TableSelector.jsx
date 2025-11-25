@@ -18,7 +18,7 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
   useEffect(() => {
     // 当选择的表变化时，更新输入框
     if (selectedTable) {
-      setInputValue(`#${selectedTable.database}.${selectedTable.table}`);
+      setInputValue(`${selectedTable.database}.${selectedTable.table}`);
     }
   }, [selectedTable]);
 
@@ -52,81 +52,94 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
     const value = e.target.value;
     setInputValue(value);
 
-    // 解析输入内容
-    if (value.startsWith('#')) {
-      const query = value.slice(1).toLowerCase();
-      const parts = query.split('.');
+    const query = value.toLowerCase();
+    const parts = query.split('.');
 
-      let newSuggestions = [];
+    let newSuggestions = [];
 
-      if (parts.length === 1) {
-        // 只输入了数据库名的一部分
-        const dbQuery = parts[0];
+    if (parts.length === 1) {
+      // 只输入了数据库名的一部分或为空
+      const dbQuery = parts[0];
 
-        // 如果只输入了 '#'，显示所有数据库
-        if (dbQuery === '') {
-          Object.keys(metadata).forEach(db => {
+      // 如果为空，显示所有数据库
+      if (dbQuery === '') {
+        Object.keys(metadata).forEach(db => {
+          newSuggestions.push({
+            type: 'database',
+            display: `${db}`,
+            database: db,
+            description: `数据库 (${metadata[db].length} 个表)`
+          });
+        });
+      } else {
+        // 搜索匹配的数据库和表
+        Object.keys(metadata).forEach(db => {
+          // 匹配数据库名
+          if (db.toLowerCase().includes(dbQuery)) {
             newSuggestions.push({
               type: 'database',
-              display: `#${db}.`,
+              display: `${db}`,
               database: db,
               description: `数据库 (${metadata[db].length} 个表)`
             });
-          });
-        } else {
-          // 搜索匹配的数据库
-          Object.keys(metadata).forEach(db => {
-            if (db.toLowerCase().includes(dbQuery)) {
+          }
+
+          // 同时搜索所有表（按表名或注释）
+          const tables = metadata[db];
+          tables.forEach(tableInfo => {
+            const tableName = tableInfo.name;
+            const tableComment = tableInfo.comment || '';
+            if (tableName.toLowerCase().includes(dbQuery) ||
+                tableComment.toLowerCase().includes(dbQuery)) {
               newSuggestions.push({
-                type: 'database',
-                display: `#${db}.`,
+                type: 'table',
+                display: `${db}.${tableName}`,
                 database: db,
-                description: `数据库 (${metadata[db].length} 个表)`
+                table: tableName,
+                comment: tableComment,
+                description: tableComment || `${db}.${tableName}`
+              });
+            }
+          });
+        });
+      }
+    } else if (parts.length === 2) {
+      // 输入了数据库名和表名的一部分
+      const dbName = parts[0];
+      const tableQuery = parts[1];
+
+      Object.keys(metadata).forEach(db => {
+        if (db.toLowerCase() === dbName.toLowerCase() || db.toLowerCase().includes(dbName.toLowerCase())) {
+          const tables = metadata[db];
+          tables.forEach(tableInfo => {
+            const tableName = tableInfo.name;
+            const tableComment = tableInfo.comment || '';
+            // 支持按表名或注释搜索
+            if (tableName.toLowerCase().includes(tableQuery) ||
+                tableComment.toLowerCase().includes(tableQuery)) {
+              newSuggestions.push({
+                type: 'table',
+                display: `${db}.${tableName}`,
+                database: db,
+                table: tableName,
+                comment: tableComment,
+                description: tableComment || `${db}.${tableName}`
               });
             }
           });
         }
-      } else if (parts.length === 2) {
-        // 输入了数据库名和表名的一部分
-        const dbName = parts[0];
-        const tableQuery = parts[1];
-
-        Object.keys(metadata).forEach(db => {
-          if (db.toLowerCase() === dbName.toLowerCase() || db.toLowerCase().includes(dbName.toLowerCase())) {
-            const tables = metadata[db];
-            tables.forEach(tableInfo => {
-              const tableName = tableInfo.name;
-              const tableComment = tableInfo.comment || '';
-              // 支持按表名或注释搜索
-              if (tableName.toLowerCase().includes(tableQuery) ||
-                  tableComment.toLowerCase().includes(tableQuery)) {
-                newSuggestions.push({
-                  type: 'table',
-                  display: `#${db}.${tableName}`,
-                  database: db,
-                  table: tableName,
-                  comment: tableComment,
-                  description: tableComment || `${db}.${tableName}`
-                });
-              }
-            });
-          }
-        });
-      }
-
-      setSuggestions(newSuggestions.slice(0, 10)); // 最多显示10个建议
-      setShowDropdown(newSuggestions.length > 0);
-      setSelectedIndex(0);
-    } else {
-      setShowDropdown(false);
-      setSuggestions([]);
+      });
     }
+
+    setSuggestions(newSuggestions.slice(0, 10)); // 最多显示10个建议
+    setShowDropdown(newSuggestions.length > 0);
+    setSelectedIndex(0);
   };
 
   const handleSuggestionClick = (suggestion) => {
     if (suggestion.type === 'database') {
       // 如果点击的是数据库，继续输入表名
-      const newValue = suggestion.display;
+      const newValue = `${suggestion.database}.`;
       setInputValue(newValue);
 
       // 自动显示该数据库下的所有表
@@ -134,7 +147,7 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
       const tables = metadata[dbName] || [];
       const newSuggestions = tables.map(tableInfo => ({
         type: 'table',
-        display: `#${dbName}.${tableInfo.name}`,
+        display: `${dbName}.${tableInfo.name}`,
         database: dbName,
         table: tableInfo.name,
         comment: tableInfo.comment || '',
@@ -192,12 +205,22 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
           ref={inputRef}
           type="text"
           className="table-selector-input"
-          placeholder="输入 #数据库名.表名 来选择数据表"
+          placeholder="点击选择或搜索数据库和表"
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onFocus={() => {
-            if (suggestions.length > 0) {
+            // 聚焦时显示所有数据库（如果输入为空）
+            if (inputValue === '') {
+              const allDatabases = Object.keys(metadata).map(db => ({
+                type: 'database',
+                display: `${db}`,
+                database: db,
+                description: `数据库 (${metadata[db].length} 个表)`
+              }));
+              setSuggestions(allDatabases.slice(0, 10));
+              setShowDropdown(true);
+            } else if (suggestions.length > 0) {
               setShowDropdown(true);
             }
           }}
