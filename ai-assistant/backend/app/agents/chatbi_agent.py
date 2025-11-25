@@ -111,21 +111,21 @@ class ChatBIAgent(BaseAgent):
 1. 提供简短的文字说明（1-2句话概括查询结果）
 2. 在markdown代码块中返回完整的工具输出JSON，格式如下：
 ```json
-{完整的工具返回JSON}
+{{完整的工具返回JSON}}
 ```
 
 示例响应格式：
 好的，我已经查询到了销售数据。以下是查询结果：
 
 ```json
-{
+{{
   "success": true,
   "sql": "SELECT ...",
   "row_count": 10,
   "data": [...],
-  "chart_suggestion": {...},
-  "chart_config": {...}
-}
+  "chart_suggestion": {{...}},
+  "chart_config": {{...}}
+}}
 ```
 
 ## 注意事项：
