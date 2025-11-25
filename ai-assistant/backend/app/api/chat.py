@@ -1,7 +1,7 @@
 """
 聊天相关 API - 支持多Agent和表上下文
 """
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends, Query
 from typing import Dict, Optional, List
 import json
 import sys
@@ -11,26 +11,32 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from app.models.schemas import ChatRequest, ChatResponse, WebSocketMessage, ChatRequestWithAgent, AgentInfo
 from app.services.conversation_service import conversation_service
+from app.api.auth import get_current_user_from_token
+from app.services.auth_service import auth_service
 
 router = APIRouter(prefix="/chat", tags=["聊天"])
 
 
 @router.post("/message", response_model=ChatResponse)
-async def send_message(request: ChatRequest):
+async def send_message(
+    request: ChatRequest,
+    current_user: dict = Depends(get_current_user_from_token)
+):
     """
-    发送聊天消息（同步）
-    
+    发送聊天消息（同步）- 需要认证
+
     Args:
         request: 聊天请求
-    
+        current_user: 当前登录用户
+
     Returns:
         聊天响应
     """
     session_id = request.session_id or f"session_{os.urandom(8).hex()}"
-    
+
     try:
         result = conversation_service.chat(session_id, request.message)
-        
+
         return ChatResponse(
             success=result['success'],
             message=result['output'],
@@ -41,12 +47,19 @@ async def send_message(request: ChatRequest):
 
 
 @router.websocket("/ws/{session_id}")
-async def websocket_chat(websocket: WebSocket, session_id: str):
+async def websocket_chat(
+    websocket: WebSocket,
+    session_id: str,
+    token: Optional[str] = Query(None)
+):
     """
-    WebSocket 聊天端点（流式） - 支持Agent选择和表上下文
+    WebSocket 聊天端点（流式） - 需要认证
+
     Args:
         websocket: WebSocket连接
         session_id: 会话ID
+        token: JWT token (通过query参数传递)
+
     接收的消息格式：
         {
             "message": "用户消息",
@@ -54,6 +67,16 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
             "table_context": {"database": "db_name", "table": "table_name"}  # 可选
         }
     """
+    # 验证token
+    if not token:
+        await websocket.close(code=1008, reason="未提供认证令牌")
+        return
+
+    user = auth_service.get_current_user(token)
+    if not user:
+        await websocket.close(code=1008, reason="认证令牌无效或已过期")
+        return
+
     await websocket.accept()
 
     try:
@@ -118,13 +141,17 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
 
 
 @router.delete("/clear/{session_id}")
-async def clear_history(session_id: str):
+async def clear_history(
+    session_id: str,
+    current_user: dict = Depends(get_current_user_from_token)
+):
     """
-    清除会话历史
-    
+    清除会话历史 - 需要认证
+
     Args:
         session_id: 会话ID
-    
+        current_user: 当前登录用户
+
     Returns:
         操作结果
     """
@@ -136,11 +163,17 @@ async def clear_history(session_id: str):
 
 
 @router.get("/history/{session_id}")
-async def get_history(session_id: str):
+async def get_history(
+    session_id: str,
+    current_user: dict = Depends(get_current_user_from_token)
+):
     """
-    获取会话历史
+    获取会话历史 - 需要认证
+
     Args:
         session_id: 会话ID
+        current_user: 当前登录用户
+
     Returns:
         历史消息数量
     """
@@ -152,9 +185,13 @@ async def get_history(session_id: str):
 
 
 @router.get("/agents", response_model=List[AgentInfo])
-async def get_agents():
+async def get_agents(current_user: dict = Depends(get_current_user_from_token)):
     """
-    获取所有可用的Agent列表
+    获取所有可用的Agent列表 - 需要认证
+
+    Args:
+        current_user: 当前登录用户
+
     Returns:
         Agent信息列表
     """
@@ -166,7 +203,12 @@ async def get_agents():
 
 
 @router.post("/table-context/{session_id}")
-async def set_table_context(session_id: str, database: str, table: str):
+async def set_table_context(
+    session_id: str,
+    database: str,
+    table: str,
+    current_user: dict = Depends(get_current_user_from_token)
+):
     """
     设置会话的表上下文
     Args:
@@ -191,11 +233,17 @@ async def set_table_context(session_id: str, database: str, table: str):
 
 
 @router.get("/table-context/{session_id}")
-async def get_table_context(session_id: str):
+async def get_table_context(
+    session_id: str,
+    current_user: dict = Depends(get_current_user_from_token)
+):
     """
-    获取会话的表上下文
+    获取会话的表上下文 - 需要认证
+
     Args:
         session_id: 会话ID
+        current_user: 当前登录用户
+
     Returns:
         表上下文信息
     """
@@ -210,7 +258,10 @@ async def get_table_context(session_id: str):
 
 
 @router.delete("/table-context/{session_id}")
-async def clear_table_context(session_id: str):
+async def clear_table_context(
+    session_id: str,
+    current_user: dict = Depends(get_current_user_from_token)
+):
     """
     清除会话的表上下文
     Args:
