@@ -13,7 +13,9 @@ from dotenv import load_dotenv
 load_dotenv("../../.env")
 
 from app.config import settings
-from app.api import chat, system, database
+from app.api import chat, system, database, auth, conversations
+from app.database import init_db
+from app.services.cleanup_service import cleanup_service
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -37,6 +39,32 @@ app.add_middleware(
 app.include_router(chat.router, prefix=settings.API_PREFIX)
 app.include_router(system.router, prefix=settings.API_PREFIX)
 app.include_router(database.router, prefix=settings.API_PREFIX)
+app.include_router(auth.router, prefix=settings.API_PREFIX)
+app.include_router(conversations.router, prefix=settings.API_PREFIX)
+
+
+@app.on_event("startup")
+async def startup_event():
+    """应用启动时执行"""
+    try:
+        # 初始化数据库
+        print("\n正在初始化数据库...")
+        init_db()
+
+        # 启动定时清理任务
+        cleanup_service.start()
+    except Exception as e:
+        print(f"\n✗ 启动初始化失败: {str(e)}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """应用关闭时执行"""
+    try:
+        # 停止定时任务
+        cleanup_service.stop()
+    except Exception as e:
+        print(f"\n✗ 关闭清理失败: {str(e)}")
 
 
 @app.get("/")

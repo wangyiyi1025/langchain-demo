@@ -35,3 +35,16 @@ pandas==2.2.0
 
 # 可视化（可选，用于生成图表）
 matplotlib==3.8.2
+
+# 加密和安全
+cryptography==42.0.5
+passlib[bcrypt]==1.7.4
+
+# 验证码生成
+Pillow==10.2.0
+
+# JWT认证
+PyJWT==2.8.0
+
+# 定时任务
+APScheduler==3.10.4
