@@ -16,7 +16,7 @@ from tools.time_tool import get_current_time, get_date_info
 from tools.calculator_tool import calculate
 from tools.search_tool import search_web
 from tools.wangwei_info import wangwei_info
-from .base_agent import BaseAgent
+from app.agents.base_agent import BaseAgent
 
 
 class ChatAgent(BaseAgent):

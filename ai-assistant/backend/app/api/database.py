@@ -3,8 +3,8 @@
 """
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Optional
-from ..services.database_service import get_database_service
-from ..models.schemas import DatabaseInfo, TableInfo, TableSearchResult
+from app.services.database_service import get_database_service
+from app.models.schemas import DatabaseInfo, TableInfo, TableSearchResult
 
 router = APIRouter()
 

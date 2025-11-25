@@ -2,7 +2,7 @@
 Agent管理器 - 负责管理所有Agent实例
 """
 from typing import Dict, List, Optional
-from .base_agent import BaseAgent
+from app.agents.base_agent import BaseAgent
 
 
 class AgentManager:
