@@ -12,8 +12,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from dotenv import load_dotenv
 load_dotenv("../../.env")
 
-from config import settings
-from api import chat, system, database
+from app.config import settings
+from app.api import chat, system, database
 
 # 创建FastAPI应用
 app = FastAPI(

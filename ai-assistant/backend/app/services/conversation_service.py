@@ -8,9 +8,9 @@ import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agents.chat_agent import ChatAgent
-from agents.chatbi_agent import ChatBIAgent
-from agents.agent_manager import agent_manager
+from app.agents.chat_agent import ChatAgent
+from app.agents.chatbi_agent import ChatBIAgent
+from app.agents.agent_manager import agent_manager
 
 
 class ConversationService:

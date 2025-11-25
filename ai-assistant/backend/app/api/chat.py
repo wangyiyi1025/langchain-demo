@@ -9,8 +9,8 @@ import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.schemas import ChatRequest, ChatResponse, WebSocketMessage, ChatRequestWithAgent, AgentInfo
-from services.conversation_service import conversation_service
+from app.models.schemas import ChatRequest, ChatResponse, WebSocketMessage, ChatRequestWithAgent, AgentInfo
+from app.services.conversation_service import conversation_service
 
 router = APIRouter(prefix="/chat", tags=["聊天"])
 

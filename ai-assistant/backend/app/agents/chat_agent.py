@@ -11,11 +11,11 @@ import os
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import settings
-from tools.time_tool import get_current_time, get_date_info
-from tools.calculator_tool import calculate
-from tools.search_tool import search_web
-from tools.wangwei_info import wangwei_info
+from app.config import settings
+from app.tools.time_tool import get_current_time, get_date_info
+from app.tools.calculator_tool import calculate
+from app.tools.search_tool import search_web
+from app.tools.wangwei_info import wangwei_info
 from app.agents.base_agent import BaseAgent
 
 
