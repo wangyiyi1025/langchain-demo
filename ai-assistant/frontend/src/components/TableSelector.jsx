@@ -107,7 +107,23 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
   const handleSuggestionClick = (suggestion) => {
     if (suggestion.type === 'database') {
       // 如果点击的是数据库，继续输入表名
-      setInputValue(suggestion.display);
+      const newValue = suggestion.display;
+      setInputValue(newValue);
+
+      // 自动显示该数据库下的所有表
+      const dbName = suggestion.database;
+      const tables = metadata[dbName] || [];
+      const newSuggestions = tables.map(table => ({
+        type: 'table',
+        display: `#${dbName}.${table}`,
+        database: dbName,
+        table: table,
+        description: `${dbName}.${table}`
+      }));
+
+      setSuggestions(newSuggestions.slice(0, 10));
+      setShowDropdown(newSuggestions.length > 0);
+      setSelectedIndex(0);
       inputRef.current.focus();
     } else {
       // 如果点击的是表，选择该表
