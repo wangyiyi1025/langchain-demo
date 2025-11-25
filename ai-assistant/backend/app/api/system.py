@@ -5,11 +5,11 @@ from fastapi import APIRouter
 import sys
 import os
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from config import settings
-from models.schemas import SystemInfo, ToolInfo
-from services.conversation_service import conversation_service
+from app.config import settings
+from app.models.schemas import SystemInfo, ToolInfo
+from app.services.conversation_service import conversation_service
 
 router = APIRouter(prefix="/system", tags=["系统"])
 from dotenv import load_dotenv

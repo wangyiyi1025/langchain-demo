@@ -3,13 +3,8 @@
 """
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Optional
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from services.database_service import get_database_service
-from models.schemas import DatabaseInfo, TableInfo, TableSearchResult
+from app.services.database_service import get_database_service
+from app.models.schemas import DatabaseInfo, TableInfo, TableSearchResult
 
 router = APIRouter(prefix="/database", tags=["数据库"])
 
@@ -74,6 +69,21 @@ async def get_all_metadata():
     try:
         db_service = get_database_service()
         metadata = db_service.get_all_metadata()
+        return metadata
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取元数据失败: {str(e)}")
+
+
+@router.get("/metadata-with-comments", response_model=Dict[str, List[Dict[str, str]]])
+async def get_all_metadata_with_comments():
+    """
+    获取所有数据库及其表的元数据（包含注释）
+    Returns:
+        Dict[str, List[Dict]]: {数据库名: [{"name": "表名", "comment": "注释"}]}
+    """
+    try:
+        db_service = get_database_service()
+        metadata = db_service.get_all_metadata_with_comments()
         return metadata
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取元数据失败: {str(e)}")

@@ -11,13 +11,25 @@ import json
 import base64
 from io import BytesIO
 from typing import Dict, Any, Optional, List
+from datetime import datetime, date
+from decimal import Decimal
 import sys
 import os
 
 # 添加项目根目录到路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from config import settings
+from app.config import settings
+
+
+class DateTimeEncoder(json.JSONEncoder):
+    """自定义JSON编码器，处理datetime、date和Decimal类型"""
+    def default(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        elif isinstance(obj, Decimal):
+            return float(obj)
+        return super().default(obj)
 
 
 class StarrocksConnection:
@@ -327,14 +339,14 @@ class ChatBIAnalyzer:
                 "message": f"成功执行查询，返回 {len(result_data)} 行数据"
             }
 
-            return json.dumps(response, ensure_ascii=False, indent=2)
+            return json.dumps(response, ensure_ascii=False, indent=2, cls=DateTimeEncoder)
 
         except Exception as e:
             return json.dumps({
                 "success": False,
                 "error": str(e),
                 "question": question
-            }, ensure_ascii=False, indent=2)
+            }, ensure_ascii=False, indent=2, cls=DateTimeEncoder)
 
         finally:
             # 关闭数据库连接

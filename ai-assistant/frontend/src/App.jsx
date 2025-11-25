@@ -194,11 +194,15 @@ function App() {
     setSelectedTable(table);
 
     if (table) {
+      const tableDisplay = table.comment
+        ? `${table.comment} (${table.database}.${table.table})`
+        : `${table.database}.${table.table}`;
+
       setMessages(prev => [
         ...prev,
         {
           role: 'assistant',
-          content: `已选择表：${table.database}.${table.table}\n\n现在所有对话都将基于这个表进行分析。你可以开始提问了！`,
+          content: `已选择表：${tableDisplay}\n\n现在所有对话都将基于这个表进行分析。你可以开始提问了！`,
           timestamp: new Date()
         }
       ]);

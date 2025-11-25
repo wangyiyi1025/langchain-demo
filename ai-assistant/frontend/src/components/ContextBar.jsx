@@ -12,8 +12,13 @@ const ContextBar = ({ selectedAgent, selectedTable }) => {
         <span className="context-icon">📊</span>
         <span className="context-label">当前分析表：</span>
         <span className="context-value">
-          {selectedTable.database}.{selectedTable.table}
+          {selectedTable.comment || `${selectedTable.database}.${selectedTable.table}`}
         </span>
+        {selectedTable.comment && (
+          <span className="context-subvalue">
+            {selectedTable.database}.{selectedTable.table}
+          </span>
+        )}
       </div>
       <div className="context-hint">
         所有对话将基于此表进行分析
