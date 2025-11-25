@@ -1,11 +1,11 @@
 # FastAPI 框架
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-websockets==12.0
+fastapi==0.121.1
+uvicorn[standard]==0.38.0
+websockets==15.0.1
 
 # LangChain
 langchain==0.3.15
-langchain-core==0.3.28
+langchain-core==0.3.63
 langchain-community==0.3.14
 
 # 千问模型
@@ -13,8 +13,7 @@ dashscope==1.20.11
 
 # 数据验证
 pydantic==2.10.3
-pydantic-settings==2.6.1
-email-validator==2.1.0
+pydantic-settings==2.12.0
 
 # HTTP请求
 requests==2.32.3
@@ -23,7 +22,7 @@ requests==2.32.3
 pytz==2024.1
 
 # Python环境管理
-python-dotenv==1.0.0
+python-dotenv==1.2.1
 
 # 日志
 loguru==0.7.2
@@ -35,14 +34,14 @@ pymysql==1.1.0
 pandas==2.2.0
 
 # 可视化（可选，用于生成图表）
-matplotlib==3.8.2
+matplotlib==3.10.7
 
 # 加密和安全
 cryptography==42.0.5
 passlib[bcrypt]==1.7.4
 
 # 验证码生成
-Pillow==10.2.0
+Pillow==12.0.0
 
 # JWT认证
 PyJWT==2.8.0
