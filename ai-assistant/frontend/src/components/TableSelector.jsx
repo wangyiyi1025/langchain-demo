@@ -137,7 +137,8 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
       setShowDropdown(false);
       onTableSelect({
         database: suggestion.database,
-        table: suggestion.table
+        table: suggestion.table,
+        comment: suggestion.comment || ''
       });
     }
   };
