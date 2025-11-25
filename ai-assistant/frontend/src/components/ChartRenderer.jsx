@@ -86,6 +86,9 @@ function ChartRenderer({ chartConfig }) {
       return value
     }
 
+    // 支持单个或多个 y_axis
+    const yAxisFields = Array.isArray(y_axis) ? y_axis : [y_axis]
+
     return (
       <div className="chart-container">
         <h3 className="chart-title">{title || '柱状图'}</h3>
@@ -103,10 +106,16 @@ function ChartRenderer({ chartConfig }) {
             <YAxis />
             <Tooltip
               labelFormatter={formatXAxis}
-              formatter={(value) => [value, y_axis]}
             />
             <Legend />
-            <Bar dataKey={y_axis} fill="#8884d8" name={y_axis || '数值'} />
+            {yAxisFields.map((field, index) => (
+              <Bar
+                key={field}
+                dataKey={field}
+                fill={COLORS[index % COLORS.length]}
+                name={field}
+              />
+            ))}
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -122,6 +131,9 @@ function ChartRenderer({ chartConfig }) {
       }
       return value
     }
+
+    // 支持单个或多个 y_axis
+    const yAxisFields = Array.isArray(y_axis) ? y_axis : [y_axis]
 
     return (
       <div className="chart-container">
@@ -140,10 +152,18 @@ function ChartRenderer({ chartConfig }) {
             <YAxis />
             <Tooltip
               labelFormatter={formatXAxis}
-              formatter={(value) => [value, y_axis]}
             />
             <Legend />
-            <Line type="monotone" dataKey={y_axis} stroke="#8884d8" strokeWidth={2} name={y_axis || '数值'} />
+            {yAxisFields.map((field, index) => (
+              <Line
+                key={field}
+                type="monotone"
+                dataKey={field}
+                stroke={COLORS[index % COLORS.length]}
+                strokeWidth={2}
+                name={field}
+              />
+            ))}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -215,6 +235,9 @@ function ChartRenderer({ chartConfig }) {
       return value
     }
 
+    // 支持单个或多个 y_axis
+    const yAxisFields = Array.isArray(y_axis) ? y_axis : [y_axis]
+
     return (
       <div className="chart-container">
         <h3 className="chart-title">{title || '面积图'}</h3>
@@ -232,10 +255,19 @@ function ChartRenderer({ chartConfig }) {
             <YAxis />
             <Tooltip
               labelFormatter={formatXAxis}
-              formatter={(value) => [value, y_axis]}
             />
             <Legend />
-            <Area type="monotone" dataKey={y_axis} stroke="#8884d8" fill="#8884d8" name={y_axis || '数值'} />
+            {yAxisFields.map((field, index) => (
+              <Area
+                key={field}
+                type="monotone"
+                dataKey={field}
+                stroke={COLORS[index % COLORS.length]}
+                fill={COLORS[index % COLORS.length]}
+                fillOpacity={0.6}
+                name={field}
+              />
+            ))}
           </AreaChart>
         </ResponsiveContainer>
       </div>
