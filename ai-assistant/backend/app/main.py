@@ -7,8 +7,8 @@ from fastapi.responses import JSONResponse
 import sys
 import os
 
-# 添加项目路径
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# 添加项目根目录到路径（backend目录），以便能找到 app 包
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
 load_dotenv("../../.env")
 

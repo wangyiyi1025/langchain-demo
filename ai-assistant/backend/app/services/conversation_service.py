@@ -6,7 +6,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 import sys
 import os
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from app.agents.chat_agent import ChatAgent
 from app.agents.chatbi_agent import ChatBIAgent
