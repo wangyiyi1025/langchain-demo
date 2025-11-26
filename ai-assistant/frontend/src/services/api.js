@@ -183,10 +183,17 @@ export const getTableSchema = (database, table) => {
 };
 
 /**
- * 获取元数据
+ * 获取元数据（简单版本，只包含表名）
  */
 export const getMetadata = () => {
   return api.get('/database/metadata');
+};
+
+/**
+ * 获取元数据（包含注释）
+ */
+export const getMetadataWithComments = () => {
+  return api.get('/database/metadata-with-comments');
 };
 
 /**

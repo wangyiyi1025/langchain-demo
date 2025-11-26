@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getMetadata } from '../services/api';
+import { getMetadataWithComments } from '../services/api';
 import '../assets/styles/TableSelector.css';
 
 const TableSelector = ({ onTableSelect, selectedTable }) => {
@@ -41,7 +41,7 @@ const TableSelector = ({ onTableSelect, selectedTable }) => {
 
   const fetchMetadata = async () => {
     try {
-      const response = await getMetadata();
+      const response = await getMetadataWithComments();
       setMetadata(response.data);
     } catch (error) {
       console.error('获取数据库元数据失败:', error);
