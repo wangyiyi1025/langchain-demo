@@ -253,15 +253,9 @@ function ChatPage() {
 
   const handleSelectConversation = async (conversationId) => {
     try {
-      setCurrentConversationId(conversationId);
-
       if (!conversationId) {
-        // 创建新对话
-        const response = await createConversation({ title: '新对话' });
-        const newConversationId = response.data.id;
-        setCurrentConversationId(newConversationId);
-
-        // 重置状态
+        // 清空当前对话（新建对话在ConversationSidebar中处理）
+        setCurrentConversationId(null);
         setMessages([{
           role: 'assistant',
           content: '你好！我是智慧报表数据助手。\n\n我可以帮你分析数据库数据。请先使用表选择器选择要分析的表！',
@@ -270,6 +264,8 @@ function ChatPage() {
         setSelectedTable(null);
         return;
       }
+
+      setCurrentConversationId(conversationId);
 
       // 加载对话的历史消息和选中的表
       const response = await getConversation(conversationId);
