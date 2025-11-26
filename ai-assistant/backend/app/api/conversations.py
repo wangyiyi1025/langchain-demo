@@ -9,6 +9,8 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from app.utils.timezone import get_beijing_time
+
 from app.models.conversation import (
     ConversationCreate,
     ConversationUpdate,
@@ -362,7 +364,7 @@ async def add_message(
             conversation_id=conversation_id,
             role=message.role,
             content=message.content,
-            created_at=datetime.now()
+            created_at=get_beijing_time()
         )
     except HTTPException:
         raise

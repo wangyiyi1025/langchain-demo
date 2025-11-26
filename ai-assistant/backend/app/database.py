@@ -24,7 +24,9 @@ class DatabaseConnection:
             "database": settings.MYSQL_DATABASE,
             "charset": settings.MYSQL_CHARSET,
             "cursorclass": pymysql.cursors.DictCursor,
-            "autocommit": False
+            "autocommit": False,
+            # 设置时区为东八区
+            "init_command": "SET time_zone = '+08:00'"
         }
 
     def get_connection(self):

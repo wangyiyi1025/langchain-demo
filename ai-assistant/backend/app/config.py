@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     MYSQL_DATABASE: str = "smart_chat_bi_meta"
     MYSQL_CHARSET: str = "utf8mb4"
 
+    # 时区配置
+    TIMEZONE: str = "Asia/Shanghai"  # 东八区（北京时间）
+
     # StarRocks数据库配置
     STARROCKS_HOST: str = "127.0.0.1"
     STARROCKS_PORT: int = 9030
