@@ -141,12 +141,8 @@ export const updateConversationTable = (id, selectedTable) => {
 /**
  * 添加消息到对话
  */
-export const addMessage = (conversationId, role, content) => {
-  return api.post(`/conversations/${conversationId}/messages`, {
-    conversation_id: conversationId,
-    role,
-    content
-  });
+export const addMessage = (conversationId, messageData) => {
+  return api.post(`/conversations/${conversationId}/messages`, messageData);
 };
 
 // ==================== 聊天 API ====================
