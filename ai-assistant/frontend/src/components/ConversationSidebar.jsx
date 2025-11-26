@@ -24,7 +24,22 @@ const ConversationSidebar = ({ currentConversationId, onSelectConversation, onLo
   const loadConversations = async () => {
     try {
       const response = await getConversations();
-      setConversations(response.data.conversations);
+      const loadedConversations = response.data.conversations;
+      setConversations(loadedConversations);
+
+      // 如果当前没有选中对话，自动选择第一个或创建新对话
+      if (!currentConversationId) {
+        if (loadedConversations.length > 0) {
+          // 有对话，选择第一个
+          onSelectConversation(loadedConversations[0].id);
+        } else {
+          // 没有对话，自动创建一个
+          const createResponse = await createConversation({ title: '新对话' });
+          const newConversation = createResponse.data;
+          setConversations([newConversation]);
+          onSelectConversation(newConversation.id);
+        }
+      }
     } catch (error) {
       console.error('Failed to load conversations:', error);
     } finally {
