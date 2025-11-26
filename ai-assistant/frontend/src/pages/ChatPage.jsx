@@ -38,6 +38,14 @@ function ChatPage() {
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const messagesEndRef = useRef(null);
 
+  // 使用ref保存最新的conversationId，避免WebSocket闭包陷阱
+  const conversationIdRef = useRef(currentConversationId);
+
+  // 同步conversationId到ref
+  useEffect(() => {
+    conversationIdRef.current = currentConversationId;
+  }, [currentConversationId]);
+
   // 自动滚动到底部
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -124,29 +132,35 @@ function ChatPage() {
       });
     } else if (data.type === 'end') {
       setIsTyping(false);
+
+      // 保存助手消息内容的临时变量
+      let assistantMessageContent = null;
+
+      // 先更新消息状态，标记流式传输结束，同时获取消息内容
       setMessages(prev => {
         const lastMessage = prev[prev.length - 1];
         if (lastMessage && lastMessage.isStreaming) {
-          const finishedMessage = { ...lastMessage, isStreaming: false };
-
-          // 保存助手回复到数据库
-          if (currentConversationId) {
-            addMessage(currentConversationId, {
-              conversation_id: currentConversationId,
-              role: 'assistant',
-              content: finishedMessage.content
-            }).catch(error => {
-              console.error('保存助手消息失败:', error);
-            });
-          }
-
+          assistantMessageContent = lastMessage.content; // 保存消息内容
           return [
             ...prev.slice(0, -1),
-            finishedMessage
+            { ...lastMessage, isStreaming: false }
           ];
         }
         return prev;
       });
+
+      // 在setMessages外部保存助手消息到数据库，避免重复保存
+      // 使用ref获取最新的conversationId，避免闭包陷阱
+      const activeConversationId = conversationIdRef.current;
+      if (activeConversationId && assistantMessageContent) {
+        addMessage(activeConversationId, {
+          conversation_id: activeConversationId,
+          role: 'assistant',
+          content: assistantMessageContent
+        }).catch(error => {
+          console.error('保存助手消息失败:', error);
+        });
+      }
     } else if (data.type === 'error') {
       setIsTyping(false);
       setMessages(prev => [
