@@ -40,6 +40,8 @@ function ChatPage() {
 
   // 使用ref保存最新的conversationId，避免WebSocket闭包陷阱
   const conversationIdRef = useRef(currentConversationId);
+  // 使用ref保存最后一条助手消息，用于在流式传输结束后保存到数据库
+  const lastAssistantMessageRef = useRef(null);
 
   // 同步conversationId到ref
   useEffect(() => {
@@ -111,36 +113,38 @@ function ChatPage() {
       setMessages(prev => {
         const lastMessage = prev[prev.length - 1];
         if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
+          const updatedMessage = {
+            ...lastMessage,
+            content: lastMessage.content + data.content
+          };
+          // 保存到ref供后续保存到数据库使用
+          lastAssistantMessageRef.current = updatedMessage;
           return [
             ...prev.slice(0, -1),
-            {
-              ...lastMessage,
-              content: lastMessage.content + data.content
-            }
+            updatedMessage
           ];
         } else {
+          const newMessage = {
+            role: 'assistant',
+            content: data.content,
+            timestamp: new Date(),
+            isStreaming: true
+          };
+          // 保存到ref供后续保存到数据库使用
+          lastAssistantMessageRef.current = newMessage;
           return [
             ...prev,
-            {
-              role: 'assistant',
-              content: data.content,
-              timestamp: new Date(),
-              isStreaming: true
-            }
+            newMessage
           ];
         }
       });
     } else if (data.type === 'end') {
       setIsTyping(false);
 
-      // 保存助手消息内容的临时变量
-      let assistantMessageContent = null;
-
-      // 先更新消息状态，标记流式传输结束，同时获取消息内容
+      // 标记流式传输结束
       setMessages(prev => {
         const lastMessage = prev[prev.length - 1];
         if (lastMessage && lastMessage.isStreaming) {
-          assistantMessageContent = lastMessage.content; // 保存消息内容
           return [
             ...prev.slice(0, -1),
             { ...lastMessage, isStreaming: false }
@@ -149,17 +153,22 @@ function ChatPage() {
         return prev;
       });
 
-      // 在setMessages外部保存助手消息到数据库，避免重复保存
-      // 使用ref获取最新的conversationId，避免闭包陷阱
+      // 保存助手消息到数据库
+      // 使用ref获取最新的conversationId和消息内容，避免闭包陷阱
       const activeConversationId = conversationIdRef.current;
-      if (activeConversationId && assistantMessageContent) {
+      const lastAssistantMessage = lastAssistantMessageRef.current;
+
+      if (activeConversationId && lastAssistantMessage) {
         addMessage(activeConversationId, {
           conversation_id: activeConversationId,
           role: 'assistant',
-          content: assistantMessageContent
+          content: lastAssistantMessage.content
         }).catch(error => {
           console.error('保存助手消息失败:', error);
         });
+
+        // 清空ref，避免重复保存
+        lastAssistantMessageRef.current = null;
       }
     } else if (data.type === 'error') {
       setIsTyping(false);
