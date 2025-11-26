@@ -3,6 +3,7 @@
 """
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List
+from datetime import datetime
 import sys
 import os
 
@@ -11,9 +12,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from app.models.conversation import (
     ConversationCreate,
     ConversationUpdate,
+    ConversationTableUpdate,
     ConversationResponse,
     ConversationDetailResponse,
     ConversationListResponse,
+    MessageCreate,
     MessageResponse
 )
 from app.services.conversation_db_service import conversation_db_service
@@ -56,6 +59,7 @@ async def create_conversation(
             id=conversation_data["id"],
             user_id=conversation_data["user_id"],
             title=conversation_data["title"],
+            selected_table=conversation_data.get("selected_table"),
             created_at=conversation_data["created_at"],
             updated_at=conversation_data["updated_at"],
             message_count=0
@@ -95,6 +99,7 @@ async def list_conversations(
                 id=c["id"],
                 user_id=c["user_id"],
                 title=c["title"],
+                selected_table=c.get("selected_table"),
                 created_at=c["created_at"],
                 updated_at=c["updated_at"],
                 message_count=c["message_count"]
@@ -149,6 +154,7 @@ async def get_conversation(
             id=conversation_data["id"],
             user_id=conversation_data["user_id"],
             title=conversation_data["title"],
+            selected_table=conversation_data.get("selected_table"),
             created_at=conversation_data["created_at"],
             updated_at=conversation_data["updated_at"],
             message_count=len(messages),
@@ -200,6 +206,7 @@ async def update_conversation(
             id=conversation_data["id"],
             user_id=conversation_data["user_id"],
             title=conversation_data["title"],
+            selected_table=conversation_data.get("selected_table"),
             created_at=conversation_data["created_at"],
             updated_at=conversation_data["updated_at"],
             message_count=0
@@ -314,3 +321,106 @@ async def get_conversation_messages(
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取消息列表失败: {str(e)}")
+
+
+@router.post("/{conversation_id}/messages", response_model=MessageResponse)
+async def add_message(
+    conversation_id: int,
+    message: MessageCreate,
+    current_user: dict = Depends(get_current_user_from_token)
+):
+    """
+    添加消息到对话
+
+    Args:
+        conversation_id: 对话ID
+        message: 消息内容
+        current_user: 当前用户
+
+    Returns:
+        添加的消息信息
+    """
+    try:
+        # 验证对话是否属于当前用户
+        conversation = conversation_db_service.get_conversation(
+            conversation_id=conversation_id,
+            user_id=current_user["id"]
+        )
+
+        if not conversation:
+            raise HTTPException(status_code=404, detail="对话不存在")
+
+        # 添加消息
+        message_id = conversation_db_service.add_message(
+            conversation_id=conversation_id,
+            role=message.role,
+            content=message.content
+        )
+
+        return MessageResponse(
+            id=message_id,
+            conversation_id=conversation_id,
+            role=message.role,
+            content=message.content,
+            created_at=datetime.now()
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"添加消息失败: {str(e)}")
+
+
+@router.patch("/{conversation_id}/table", response_model=ConversationResponse)
+async def update_conversation_table(
+    conversation_id: int,
+    table_update: ConversationTableUpdate,
+    current_user: dict = Depends(get_current_user_from_token)
+):
+    """
+    更新对话的选中表
+
+    Args:
+        conversation_id: 对话ID
+        table_update: 选中表信息
+        current_user: 当前用户
+
+    Returns:
+        更新后的对话信息
+    """
+    try:
+        # 将Pydantic模型转换为字典
+        selected_table_dict = None
+        if table_update.selected_table:
+            selected_table_dict = table_update.selected_table.model_dump()
+
+        success = conversation_db_service.update_selected_table(
+            conversation_id=conversation_id,
+            user_id=current_user["id"],
+            selected_table=selected_table_dict
+        )
+
+        if not success:
+            raise HTTPException(status_code=404, detail="对话不存在或更新失败")
+
+        # 获取更新后的对话信息
+        conversation_data = conversation_db_service.get_conversation(
+            conversation_id=conversation_id,
+            user_id=current_user["id"]
+        )
+
+        if not conversation_data:
+            raise HTTPException(status_code=404, detail="对话不存在")
+
+        return ConversationResponse(
+            id=conversation_data["id"],
+            user_id=conversation_data["user_id"],
+            title=conversation_data["title"],
+            selected_table=conversation_data.get("selected_table"),
+            created_at=conversation_data["created_at"],
+            updated_at=conversation_data["updated_at"],
+            message_count=0
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新对话选中表失败: {str(e)}")

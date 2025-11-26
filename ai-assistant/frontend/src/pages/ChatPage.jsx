@@ -5,7 +5,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { createWebSocket } from '../services/api';
+import {
+  createWebSocket,
+  getConversation,
+  addMessage,
+  updateConversationTable,
+  createConversation
+} from '../services/api';
 import ConversationSidebar from '../components/ConversationSidebar';
 import ChatMessage from '../components/ChatMessage';
 import ChatInput from '../components/ChatInput';
@@ -90,7 +96,7 @@ function ChatPage() {
     }
   };
 
-  const handleWebSocketMessage = (data) => {
+  const handleWebSocketMessage = async (data) => {
     if (data.type === 'start') {
       setIsTyping(true);
     } else if (data.type === 'stream') {
@@ -121,9 +127,22 @@ function ChatPage() {
       setMessages(prev => {
         const lastMessage = prev[prev.length - 1];
         if (lastMessage && lastMessage.isStreaming) {
+          const finishedMessage = { ...lastMessage, isStreaming: false };
+
+          // 保存助手回复到数据库
+          if (currentConversationId) {
+            addMessage(currentConversationId, {
+              conversation_id: currentConversationId,
+              role: 'assistant',
+              content: finishedMessage.content
+            }).catch(error => {
+              console.error('保存助手消息失败:', error);
+            });
+          }
+
           return [
             ...prev.slice(0, -1),
-            { ...lastMessage, isStreaming: false }
+            finishedMessage
           ];
         }
         return prev;
@@ -141,12 +160,18 @@ function ChatPage() {
     }
   };
 
-  const handleSendMessage = (message) => {
+  const handleSendMessage = async (message) => {
     if (!selectedTable) {
       alert('请先选择数据库和表！');
       return;
     }
 
+    if (!currentConversationId) {
+      alert('请先创建或选择一个对话！');
+      return;
+    }
+
+    // 添加用户消息到本地状态
     setMessages(prev => [
       ...prev,
       {
@@ -155,6 +180,17 @@ function ChatPage() {
         timestamp: new Date()
       }
     ]);
+
+    // 保存用户消息到数据库
+    try {
+      await addMessage(currentConversationId, {
+        conversation_id: currentConversationId,
+        role: 'user',
+        content: message
+      });
+    } catch (error) {
+      console.error('保存用户消息失败:', error);
+    }
 
     if (ws && ws.readyState === WebSocket.OPEN) {
       const payload = {
@@ -169,7 +205,7 @@ function ChatPage() {
     }
   };
 
-  const handleTableSelect = (table) => {
+  const handleTableSelect = async (table) => {
     setSelectedTable(table);
 
     if (table) {
@@ -177,14 +213,29 @@ function ChatPage() {
         ? `${table.comment} (${table.database}.${table.table})`
         : `${table.database}.${table.table}`;
 
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `已选择表：${tableDisplay}\n\n现在所有对话都将基于这个表进行分析。你可以开始提问了！`,
-          timestamp: new Date()
+      const assistantMessage = {
+        role: 'assistant',
+        content: `已选择表：${tableDisplay}\n\n现在所有对话都将基于这个表进行分析。你可以开始提问了！`,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+
+      // 保存选中的表到数据库
+      if (currentConversationId) {
+        try {
+          await updateConversationTable(currentConversationId, table);
+
+          // 保存助手消息到数据库
+          await addMessage(currentConversationId, {
+            conversation_id: currentConversationId,
+            role: 'assistant',
+            content: assistantMessage.content
+          });
+        } catch (error) {
+          console.error('保存选中表失败:', error);
         }
-      ]);
+      }
     }
   };
 
@@ -200,10 +251,57 @@ function ChatPage() {
     ]);
   };
 
-  const handleSelectConversation = (conversationId) => {
-    setCurrentConversationId(conversationId);
-    // TODO: 加载对话的历史消息
-    console.log('切换到对话:', conversationId);
+  const handleSelectConversation = async (conversationId) => {
+    try {
+      setCurrentConversationId(conversationId);
+
+      if (!conversationId) {
+        // 创建新对话
+        const response = await createConversation({ title: '新对话' });
+        const newConversationId = response.data.id;
+        setCurrentConversationId(newConversationId);
+
+        // 重置状态
+        setMessages([{
+          role: 'assistant',
+          content: '你好！我是智慧报表数据助手。\n\n我可以帮你分析数据库数据。请先使用表选择器选择要分析的表！',
+          timestamp: new Date()
+        }]);
+        setSelectedTable(null);
+        return;
+      }
+
+      // 加载对话的历史消息和选中的表
+      const response = await getConversation(conversationId);
+      const conversation = response.data;
+
+      // 恢复消息历史
+      if (conversation.messages && conversation.messages.length > 0) {
+        const formattedMessages = conversation.messages.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+          timestamp: new Date(msg.created_at)
+        }));
+        setMessages(formattedMessages);
+      } else {
+        // 如果没有历史消息，显示默认欢迎消息
+        setMessages([{
+          role: 'assistant',
+          content: '你好！我是智慧报表数据助手。\n\n我可以帮你分析数据库数据。请先使用表选择器选择要分析的表！',
+          timestamp: new Date()
+        }]);
+      }
+
+      // 恢复选中的表
+      if (conversation.selected_table) {
+        setSelectedTable(conversation.selected_table);
+      } else {
+        setSelectedTable(null);
+      }
+    } catch (error) {
+      console.error('加载对话失败:', error);
+      alert('加载对话失败');
+    }
   };
 
   const handleLogout = async () => {

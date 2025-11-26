@@ -129,6 +129,26 @@ export const getConversationMessages = (id, params = {}) => {
   return api.get(`/conversations/${id}/messages`, { params });
 };
 
+/**
+ * 更新对话的选中表
+ */
+export const updateConversationTable = (id, selectedTable) => {
+  return api.patch(`/conversations/${id}/table`, {
+    selected_table: selectedTable
+  });
+};
+
+/**
+ * 添加消息到对话
+ */
+export const addMessage = (conversationId, role, content) => {
+  return api.post(`/conversations/${conversationId}/messages`, {
+    conversation_id: conversationId,
+    role,
+    content
+  });
+};
+
 // ==================== 聊天 API ====================
 
 /**

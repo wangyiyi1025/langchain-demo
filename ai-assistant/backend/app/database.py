@@ -169,6 +169,7 @@ class DatabaseConnection:
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     user_id INT NOT NULL COMMENT '用户ID',
                     title VARCHAR(255) NOT NULL DEFAULT '新对话' COMMENT '对话标题',
+                    selected_table TEXT NULL COMMENT '选中的表信息（JSON格式）',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                     is_deleted TINYINT(1) DEFAULT 0 COMMENT '是否删除',

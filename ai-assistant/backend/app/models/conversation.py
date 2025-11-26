@@ -2,7 +2,7 @@
 对话相关数据模型
 """
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
@@ -39,11 +39,24 @@ class ConversationUpdate(BaseModel):
     title: str = Field(..., max_length=255, description="对话标题")
 
 
+class SelectedTableInfo(BaseModel):
+    """选中的表信息"""
+    database: str = Field(..., description="数据库名")
+    table: str = Field(..., description="表名")
+    comment: Optional[str] = Field(None, description="表注释")
+
+
+class ConversationTableUpdate(BaseModel):
+    """对话选中表更新模型"""
+    selected_table: Optional[SelectedTableInfo] = Field(None, description="选中的表信息")
+
+
 class ConversationResponse(BaseModel):
     """对话响应模型"""
     id: int
     user_id: int
     title: str
+    selected_table: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
     message_count: Optional[int] = 0

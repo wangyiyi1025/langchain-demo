@@ -45,12 +45,22 @@ class ConversationDBService:
             对话信息
         """
         sql = """
-            SELECT id, user_id, title, created_at, updated_at
+            SELECT id, user_id, title, selected_table, created_at, updated_at
             FROM conversations
             WHERE id = %s AND user_id = %s AND is_deleted = 0
         """
         result = db.execute_query(sql, (conversation_id, user_id))
-        return result[0] if result else None
+        if result:
+            conversation = result[0]
+            # 解析JSON字符串为字典
+            if conversation.get('selected_table'):
+                import json
+                try:
+                    conversation['selected_table'] = json.loads(conversation['selected_table'])
+                except:
+                    conversation['selected_table'] = None
+            return conversation
+        return None
 
     @staticmethod
     def list_conversations(user_id: int, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
@@ -70,6 +80,7 @@ class ConversationDBService:
                 c.id,
                 c.user_id,
                 c.title,
+                c.selected_table,
                 c.created_at,
                 c.updated_at,
                 COUNT(m.id) as message_count
@@ -80,7 +91,18 @@ class ConversationDBService:
             ORDER BY c.updated_at DESC
             LIMIT %s OFFSET %s
         """
-        return db.execute_query(sql, (user_id, limit, offset))
+        result = db.execute_query(sql, (user_id, limit, offset))
+
+        # 解析selected_table JSON字符串
+        import json
+        for conversation in result:
+            if conversation.get('selected_table'):
+                try:
+                    conversation['selected_table'] = json.loads(conversation['selected_table'])
+                except:
+                    conversation['selected_table'] = None
+
+        return result
 
     @staticmethod
     def count_conversations(user_id: int) -> int:
@@ -120,6 +142,30 @@ class ConversationDBService:
             WHERE id = %s AND user_id = %s AND is_deleted = 0
         """
         affected_rows = db.execute_update(sql, (title, conversation_id, user_id))
+        return affected_rows > 0
+
+    @staticmethod
+    def update_selected_table(conversation_id: int, user_id: int, selected_table: Optional[Dict[str, str]]) -> bool:
+        """
+        更新对话的选中表
+
+        Args:
+            conversation_id: 对话ID
+            user_id: 用户ID
+            selected_table: 选中的表信息 {"database": "db_name", "table": "table_name", "comment": "注释"}
+
+        Returns:
+            是否更新成功
+        """
+        import json
+        table_json = json.dumps(selected_table, ensure_ascii=False) if selected_table else None
+
+        sql = """
+            UPDATE conversations
+            SET selected_table = %s
+            WHERE id = %s AND user_id = %s AND is_deleted = 0
+        """
+        affected_rows = db.execute_update(sql, (table_json, conversation_id, user_id))
         return affected_rows > 0
 
     @staticmethod

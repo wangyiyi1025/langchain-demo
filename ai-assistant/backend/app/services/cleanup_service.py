@@ -19,9 +19,9 @@ class CleanupService:
         self.scheduler = BackgroundScheduler()
 
     def cleanup_old_messages(self):
-        """清理7天前的历史消息"""
+        """清理30天前的历史消息"""
         try:
-            deleted_count = conversation_db_service.delete_old_messages(days=7)
+            deleted_count = conversation_db_service.delete_old_messages(days=30)
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             print(f"[{current_time}] 清理任务执行完成，删除了 {deleted_count} 条历史消息")
         except Exception as e:
@@ -35,12 +35,12 @@ class CleanupService:
             self.cleanup_old_messages,
             trigger=CronTrigger(hour=2, minute=0),
             id='cleanup_old_messages',
-            name='清理7天前的历史消息',
+            name='清理30天前的历史消息',
             replace_existing=True
         )
 
         self.scheduler.start()
-        print("✓ 定时清理任务已启动（每天凌晨2点执行）")
+        print("✓ 定时清理任务已启动（每天凌晨2点执行，保留30天内消息）")
 
     def stop(self):
         """停止定时任务"""
