@@ -35,13 +35,14 @@ class DateTimeEncoder(json.JSONEncoder):
 class StarrocksConnection:
     """Starrocks 数据库连接管理器"""
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 9030,
-                 user: str = "admin", password: str = "123456"):
+    def __init__(self, host: str = None, port: int = None,
+                 user: str = None, password: str = None):
         """初始化数据库连接配置"""
-        self.host = host
-        self.port = port
-        self.user = user
-        self.password = password
+        # 从配置文件读取连接信息
+        self.host = host or settings.STARROCKS_HOST
+        self.port = port or settings.STARROCKS_PORT
+        self.user = user or settings.STARROCKS_USER
+        self.password = password or settings.STARROCKS_PASSWORD
         self.connection = None
 
     def connect(self):
