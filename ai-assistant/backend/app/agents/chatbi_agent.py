@@ -237,30 +237,25 @@ class ChatBIAgent(BaseAgent):
         if chat_history:
             formatted_history = self.format_chat_history(chat_history[-6:])  # 只保留最近6条
 
-        # 记录Agent调用
-        logger.info(f"\n{'='*100}")
-        logger.info(f"{log_prefix} Agent执行开始")
-        logger.info(f"{'='*100}")
-        logger.info(f"【请求】用户消息: {message}")
-        logger.info(f"【请求】增强消息: {enhanced_message}")
-        logger.info(f"【请求】对话历史条数: {len(formatted_history)}")
-
         try:
             result = self.agent_executor.invoke({
                 "input": enhanced_message,
                 "chat_history": formatted_history
             })
             output = result.get("output", "抱歉，我无法生成回复。")
-
-            logger.info(f"【响应】Agent返回:\n{output}")
-            logger.info(f"{log_prefix} Agent执行完成")
-            logger.info(f"{'='*100}\n")
+            llm_logcontent = {
+                "request": {
+                    "input": message,
+                    "enhanced_message": enhanced_message,
+                    "chat_history": formatted_history
+                },
+                "response": output
+            }
+            logger.info(f"{log_prefix} 【LLM请求】:{llm_logcontent['request']}，【LLM响应】:{llm_logcontent['response']}")
 
             return output
         except Exception as e:
             logger.error(f"【错误】Agent执行失败: {str(e)}")
-            logger.info(f"{log_prefix} Agent执行完成（失败）")
-            logger.info(f"{'='*100}\n")
             return f"处理您的请求时发生错误: {str(e)}"
 
     def stream(self, message: str, chat_history: Optional[List] = None, **kwargs):

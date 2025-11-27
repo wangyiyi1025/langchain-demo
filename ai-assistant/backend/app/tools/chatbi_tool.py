@@ -203,61 +203,142 @@ class ChatBIAnalyzer:
         """将自然语言问题转换为SQL查询"""
 
         log_prefix = "[chatbi_tool.py::ChatBIAnalyzer::natural_language_to_sql]"
-
+        
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+        current_day = datetime.now().day    
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """你是一个专业的SQL专家。根据用户的自然语言问题和表结构信息，生成对应的SQL查询语句。
+            ("system", """你是一个专业的SQL专家。根据用户的自然语言问题和表结构信息,生成对应的SQL查询语句。
 
-重要要求：
-1. **只返回SQL语句，不要有任何其他说明文字**
-2. **必须使用完整的表名**（格式：数据库名.表名，例如：sales_db.orders）
-3. 使用标准的MySQL语法（Starrocks兼容MySQL协议）
-4. 如果需要限制返回行数，默认使用 LIMIT 100
-5. 确保SQL语句的安全性，防止SQL注入
-6. 优先使用schema中明确提供的字段名，不要臆测
-7. 处理时间对比分析需求（同比、环比、同期）
+**当前时间上下文**: 当前年份是{current_year}年,当前月份是{current_month}月,当前日期是{current_day}日。
 
-## 时间对比分析概念：
+重要要求:
+1. **只返回SQL语句,不要有任何其他说明文字**
+2. **必须使用完整的表名**(格式:数据库名.表名,例如:sales_db.orders)
+3. 使用标准的MySQL语法(Starrocks兼容MySQL协议)
+4. 如果需要限制返回行数,默认使用 LIMIT 100
+5. 确保SQL语句的安全性,防止SQL注入
+6. 优先使用schema中明确提供的字段名,不要臆测
+7. **对于时间对比分析需求(同比、环比、同期),必须查询两个时间段的数据并进行对比**
 
-### 1. 同比（Year-over-Year, YoY）
+## 时间对比分析核心概念:
+
+### 1. 同比(Year-over-Year, YoY) - 重点!!!
 - **定义**: 与去年同一时期相比的变化情况
-- **识别关键词**: "同比"、"去年同期"、"上年同期"、"与去年相比"
-- **计算方法**: 同比增长率 = (本期数据 - 去年同期数据) / 去年同期数据 × 100%
-- **SQL处理**:
-  - 需要查询两个时间段的数据：当前期间和去年同期
-  - 日期处理：使用 DATE_SUB(当前日期, INTERVAL 1 YEAR) 或类似函数
-  - 示例：查询2024年3月销售额同比 → 需要查询2024年3月和2023年3月的数据
+- **识别关键词**: \"同比\"、\"去年同期\"、\"上年同期\"、\"与去年相比\"、\"YoY\"
+- **必须查询的数据**: 
+  - 当前期间的数据
+  - 去年同期的数据(日期减1年)
+- **SQL实现要点**:
+  ```sql
+  -- 错误示例(只查当年):
+  SELECT ... FROM table WHERE YEAR(date_field) = 2025
+  
+  -- 正确示例(查询两年并对比):
+  SELECT 
+    this_year.metric as current_value,
+    last_year.metric as last_year_value,
+    ((this_year.metric - last_year.metric) / last_year.metric * 100) as yoy_growth_rate
+  FROM (
+    SELECT ... FROM table WHERE YEAR(date_field) = 2025
+  ) this_year
+  LEFT JOIN (
+    SELECT ... FROM table WHERE YEAR(date_field) = 2024
+  ) last_year
+  ON this_year.dimension = last_year.dimension
+  ```
 
-### 2. 环比（Period-over-Period）
+### 2. 环比(Period-over-Period)
 - **定义**: 与上一个相邻周期相比的变化情况
-- **识别关键词**: "环比"、"上月"、"上季度"、"上周"、"较上期"
-- **计算方法**: 环比增长率 = (本期数据 - 上期数据) / 上期数据 × 100%
-- **SQL处理**:
-  - 月环比：对比相邻两个月，如2024年3月 vs 2024年2月
-  - 周环比：对比相邻两周
-  - 日环比：对比相邻两天
-  - 日期处理：使用 DATE_SUB(当前日期, INTERVAL 1 MONTH/WEEK/DAY)
+- **识别关键词**: \"环比\"、\"上月\"、\"上季度\"、\"上周\"、\"较上期\"、\"MoM\"、\"QoQ\"
+- **必须查询的数据**:
+  - 当前期间的数据
+  - 上一个相邻期间的数据
+- **SQL实现要点**:
+  - 月环比: DATE_SUB(date_field, INTERVAL 1 MONTH)
+  - 季度环比: DATE_SUB(date_field, INTERVAL 1 QUARTER)
+  - 周环比: DATE_SUB(date_field, INTERVAL 1 WEEK)
 
 ### 3. 同期
-- **定义**: 去年的相同时间段，用作同比分析的对比基准
-- **识别关键词**: "同期"、"去年同期"、"上年同期"
-- **使用场景**: 通常与同比一起使用，如"与去年同期相比"
-- **SQL处理**: 计算去年的对应日期范围
+- **定义**: 去年的相同时间段,是同比分析的对比基准
+- **与同比的关系**: \"同期\"通常指去年同期,与\"同比\"配合使用
 
-## 时间对比分析示例：
+## 典型场景SQL模板:
 
-**用户问题**: "查询今年3月销售额同比增长情况"
+### 场景1: 年度同比(如\"2025年XX同比增长前五\")
 **分析步骤**:
-1. 识别时间对比类型：同比（Year-over-Year）
-2. 确定时间范围：今年3月（2024-03） vs 去年3月（2023-03）
-3. 构建查询：查询两个时间段的销售额数据
-4. 计算增长率：(今年3月销售额 - 去年3月销售额) / 去年3月销售额 × 100%
+1. 识别: \"2025年\" + \"同比\" → 需要对比2025年和2024年
+2. 识别: \"增长前五\" → 需要计算增长值/增长率并排序取前5
+3. 构建: 分别查询2025和2024数据,JOIN后计算增长
 
-**用户问题**: "本月销售额环比上月如何"
-**分析步骤**:
-1. 识别时间对比类型：环比（Month-over-Month）
-2. 确定时间范围：本月 vs 上月
-3. 构建查询：查询连续两个月的销售额数据
-4. 计算增长率：(本月销售额 - 上月销售额) / 上月销售额 × 100%
+**SQL结构**:
+```sql
+SELECT 
+  t1.dimension_field,
+  t1.metric_2025,
+  t2.metric_2024,
+  (t1.metric_2025 - t2.metric_2024) as growth_value,
+  ROUND((t1.metric_2025 - t2.metric_2024) / t2.metric_2024 * 100, 2) as growth_rate
+FROM (
+  SELECT dimension_field, COUNT(*) as metric_2025
+  FROM table_name
+  WHERE YEAR(date_field) = 2025
+  GROUP BY dimension_field
+) t1
+LEFT JOIN (
+  SELECT dimension_field, COUNT(*) as metric_2024
+  FROM table_name
+  WHERE YEAR(date_field) = 2024
+  GROUP BY dimension_field
+) t2 ON t1.dimension_field = t2.dimension_field
+WHERE t2.metric_2024 IS NOT NULL AND t2.metric_2024 > 0
+ORDER BY growth_value DESC
+LIMIT 5;
+```
+
+### 场景2: 月度同比(如\"3月销售额同比\")
+```sql
+SELECT 
+  t1.sales_amount_current,
+  t2.sales_amount_last_year,
+  (t1.sales_amount_current - t2.sales_amount_last_year) as yoy_growth
+FROM (
+  SELECT SUM(sales_amount) as sales_amount_current
+  FROM table_name
+  WHERE YEAR(date_field) = 2025 AND MONTH(date_field) = 3
+) t1
+CROSS JOIN (
+  SELECT SUM(sales_amount) as sales_amount_last_year
+  FROM table_name
+  WHERE YEAR(date_field) = 2024 AND MONTH(date_field) = 3
+) t2;
+```
+
+### 场景3: 月度环比(如\"本月销售额环比上月\")
+```sql
+SELECT 
+  t1.sales_current_month,
+  t2.sales_last_month,
+  (t1.sales_current_month - t2.sales_last_month) / t2.sales_last_month * 100 as mom_rate
+FROM (
+  SELECT SUM(sales_amount) as sales_current_month
+  FROM table_name
+  WHERE YEAR(date_field) = 2025 AND MONTH(date_field) = 11
+) t1
+CROSS JOIN (
+  SELECT SUM(sales_amount) as sales_last_month
+  FROM table_name
+  WHERE YEAR(date_field) = 2025 AND MONTH(date_field) = 10
+) t2;
+```
+
+## 关键检查清单:
+遇到同比/环比问题时,请自检:
+- [ ] 是否识别出了\"同比\"或\"环比\"关键词?
+- [ ] 是否查询了**两个时间段**的数据?
+- [ ] 是否正确计算了对比期间的日期范围?
+- [ ] 是否在SELECT中包含了对比数据或增长率?
+- [ ] 对于\"增长前N\",是否按增长值/增长率排序?
 
 表结构信息：
 {schema_info}
@@ -270,34 +351,30 @@ class ChatBIAnalyzer:
 - 例如：用户问"查询销售额"，如果看到字段 `sales_amount (decimal) // 销售金额`，则应该使用 `sales_amount` 字段
 - 仔细查看字段类型，确保查询条件的数据类型匹配
 - 对于时间字段，注意使用正确的日期函数
+- 如果用户的问题中包含时间对比分析需求（如同比、环比、同期)，请务必在SQL中体现相应的时间计算逻辑
 
 请根据以上表结构信息生成SQL查询。
 """),
             ("human", "{question}")
         ])
 
-        # 记录LLM调用
-        logger.info(f"\n{'='*100}")
-        logger.info(f"{log_prefix} LLM调用开始")
-        logger.info(f"{'='*100}")
-        logger.info(f"【请求】用户问题: {question}")
-        logger.info(f"【请求】Schema信息:\n{schema_info}")
-
         # 渲染prompt并记录
-        formatted_messages = prompt.format_messages(question=question, schema_info=schema_info)
-        logger.info(f"【Prompt渲染结果】共 {len(formatted_messages)} 条消息:")
+        formatted_messages = prompt.format_messages(question=question, schema_info=schema_info, 
+                                                    current_month=current_month, current_year=current_year, 
+                                                    current_day=current_day)
+        llm_logcontent = {}
         for i, msg in enumerate(formatted_messages, 1):
-            logger.info(f"  消息{i} [{msg.type}]:")
-            logger.info(f"{msg.content}")
-            logger.info("-" * 100)
+            llm_logcontent[f"message_{i}"] = msg.content
 
         chain = prompt | self.llm
         response = chain.invoke({
             "question": question,
-            "schema_info": schema_info
+            "schema_info": schema_info,
+            "current_month": current_month,
+            "current_year": current_year,
+            "current_day": current_day
         })
-
-        logger.info(f"【响应】LLM原始返回:\n{response.content}")
+        logger.info(f"{log_prefix} 【LLM请求】:{llm_logcontent}，【LLM响应】:{response.content}")
 
         # 提取SQL语句（清理可能的markdown代码块格式）
         sql = response.content.strip()
@@ -309,10 +386,6 @@ class ChatBIAnalyzer:
             sql = sql[:-3]
 
         sql = sql.strip()
-        logger.info(f"【结果】提取的SQL: {sql}")
-        logger.info(f"{log_prefix} LLM调用完成")
-        logger.info(f"{'='*100}\n")
-
         return sql
 
     def analyze_data_and_suggest_chart(self, data: List[Dict], question: str) -> Dict[str, Any]:
@@ -382,15 +455,6 @@ class ChatBIAnalyzer:
 
         data_stats = "\n".join(stats_info)
 
-        # 记录LLM调用
-        logger.info(f"\n{'='*100}")
-        logger.info(f"{log_prefix} LLM调用开始")
-        logger.info(f"{'='*100}")
-        logger.info(f"【请求】用户问题: {question}")
-        logger.info(f"【请求】数据列名: {', '.join(columns)}")
-        logger.info(f"【请求】数据行数: {row_count}")
-        logger.info(f"【请求】数据统计:\n{data_stats}")
-
         # 渲染prompt并记录
         formatted_messages = prompt.format_messages(
             question=question,
@@ -399,11 +463,9 @@ class ChatBIAnalyzer:
             sample_data=sample_data,
             data_stats=data_stats
         )
-        logger.info(f"【Prompt渲染结果】共 {len(formatted_messages)} 条消息:")
+        llm_logcontent = {}
         for i, msg in enumerate(formatted_messages, 1):
-            logger.info(f"  消息{i} [{msg.type}]:")
-            logger.info(f"{msg.content}")
-            logger.info("-" * 100)
+            llm_logcontent[f"message_{i}"] = msg.content
 
         chain = prompt | self.llm
         response = chain.invoke({
@@ -413,8 +475,7 @@ class ChatBIAnalyzer:
             "sample_data": sample_data,
             "data_stats": data_stats
         })
-
-        logger.info(f"【响应】LLM原始返回:\n{response.content}")
+        logger.info(f"{log_prefix} 【LLM请求】:{llm_logcontent}，【LLM响应】:{response.content}")
 
         try:
             # 解析JSON响应
@@ -427,9 +488,6 @@ class ChatBIAnalyzer:
                 content = content[:-3]
 
             suggestion = json.loads(content.strip())
-            logger.info(f"【结果】图表建议: {json.dumps(suggestion, ensure_ascii=False, indent=2)}")
-            logger.info(f"{log_prefix} LLM调用完成")
-            logger.info(f"{'='*100}\n")
             return suggestion
         except Exception as e:
             # 如果解析失败，返回默认建议
@@ -439,9 +497,6 @@ class ChatBIAnalyzer:
                 "reason": f"无法解析建议: {str(e)}",
                 "title": "查询结果"
             }
-            logger.info(f"【结果】使用默认建议: {json.dumps(default_suggestion, ensure_ascii=False)}")
-            logger.info(f"{log_prefix} LLM调用完成（失败，使用默认值）")
-            logger.info(f"{'='*100}\n")
             return default_suggestion
 
     def generate_chart_config(self, data: List[Dict], chart_suggestion: Dict) -> Dict[str, Any]:
