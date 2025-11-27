@@ -3,6 +3,7 @@ ChatBI数据分析Agent - 专门用于数据库查询和分析
 """
 import os
 import sys
+import logging
 from typing import List, Optional, Dict, Any
 from langchain_community.chat_models import ChatTongyi
 from langchain.agents import create_tool_calling_agent, AgentExecutor
@@ -14,6 +15,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from app.agents.base_agent import BaseAgent
 from app.tools.chatbi_tool import chatbi_query, chatbi_get_schema
 
+# 配置日志
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
 
 class ChatBIAgent(BaseAgent):
     """ChatBI数据分析Agent - 专注于数据库查询和数据分析"""
@@ -22,12 +27,16 @@ class ChatBIAgent(BaseAgent):
         super().__init__()
 
         # 初始化LLM
-        self.llm = ChatTongyi(
-            model=os.getenv("QWEN_MODEL", "qwen-plus"),
-            temperature=float(os.getenv("QWEN_TEMPERATURE", "0.3")),  # 数据分析需要更精确
-            max_tokens=int(os.getenv("QWEN_MAX_TOKENS", "2000")),
-            dashscope_api_key=os.getenv("DASHSCOPE_API_KEY")
-        )
+        try:
+            self.llm = ChatTongyi(
+                model=os.getenv("QWEN_MODEL", "qwen3-max"),
+                temperature=float(os.getenv("QWEN_TEMPERATURE", "0.3")),  # 数据分析需要更精确
+                max_tokens=int(os.getenv("QWEN_MAX_TOKENS", "2000")),
+                dashscope_api_key=os.getenv("DASHSCOPE_API_KEY")
+            )
+        except Exception as e:
+            logger.error(f"【错误】ChatTongyi模型初始化失败: {str(e)}")
+            raise
 
         # ChatBI专用工具
         self.tools = [
@@ -73,6 +82,7 @@ class ChatBIAgent(BaseAgent):
 2. **数据分析**: 分析查询结果，提供洞察和见解
 3. **可视化推荐**: 为数据推荐最合适的图表类型
 4. **表结构查询**: 获取数据库和表的结构信息
+5. **时间对比分析**: 理解并处理同比、环比、同期等时间对比分析需求
 
 ## 可用工具说明：
 - `chatbi_query`: 执行数据库查询。参数：
@@ -83,16 +93,61 @@ class ChatBIAgent(BaseAgent):
 - `chatbi_get_schema`: 获取数据库Schema信息。参数：
   - database: 数据库名称（可选，不提供则返回所有数据库）
 
+## 时间对比分析概念：
+### 重要：不要修改同期、同步、环比、同期同比、同期环比等术语的名称，这些是行业标准术语，必须严格使用。
+### 1. 同比（Year-over-Year, YoY）
+- **定义**: 与去年同一时期相比的变化情况
+- **识别关键词**: "同比"、"去年同期"、"上年同期"、"与去年相比"
+- **计算方法**: 同比增长率 = (本期数据 - 去年同期数据) / 去年同期数据 × 100%
+- **SQL处理**:
+  - 需要查询两个时间段的数据：当前期间和去年同期
+  - 日期处理：使用 DATE_SUB(当前日期, INTERVAL 1 YEAR) 或类似函数
+  - 示例：查询2024年3月销售额同比 → 需要查询2024年3月和2023年3月的数据
+
+### 2. 环比（Period-over-Period）
+- **定义**: 与上一个相邻周期相比的变化情况
+- **识别关键词**: "环比"、"上月"、"上季度"、"上周"、"较上期"
+- **计算方法**: 环比增长率 = (本期数据 - 上期数据) / 上期数据 × 100%
+- **SQL处理**:
+  - 月环比：对比相邻两个月，如2024年3月 vs 2024年2月
+  - 周环比：对比相邻两周
+  - 日环比：对比相邻两天
+  - 日期处理：使用 DATE_SUB(当前日期, INTERVAL 1 MONTH/WEEK/DAY)
+
+### 3. 同期
+- **定义**: 去年的相同时间段，用作同比分析的对比基准
+- **识别关键词**: "同期"、"去年同期"、"上年同期"
+- **使用场景**: 通常与同比一起使用，如"与去年同期相比"
+- **SQL处理**: 计算去年的对应日期范围
+
+## 时间对比分析示例：
+
+**用户问题**: "查询今年3月销售额同比增长情况"
+**分析步骤**:
+1. 识别时间对比类型：同比（Year-over-Year）
+2. 确定时间范围：今年3月（2024-03） vs 去年3月（2023-03）
+3. 构建查询：查询两个时间段的销售额数据
+4. 计算增长率：(今年3月销售额 - 去年3月销售额) / 去年3月销售额 × 100%
+
+**用户问题**: "本月销售额环比上月如何"
+**分析步骤**:
+1. 识别时间对比类型：环比（Month-over-Month）
+2. 确定时间范围：本月 vs 上月
+3. 构建查询：查询连续两个月的销售额数据
+4. 计算增长率：(本月销售额 - 上月销售额) / 上月销售额 × 100%
+
 ## 工作流程：
-1. **理解用户意图**: 分析用户想要查询什么数据
-2. **检查表上下文**:
+1. **理解用户意图**: 分析用户想要查询什么数据，特别注意是否包含时间对比需求
+2. **识别时间对比类型**: 判断用户是否需要同比、环比或同期分析
+3. **检查表上下文**:
    - 如果用户消息中包含"#数据库名.表名"，这是用户选择的表
    - 将这个表信息用于后续查询
-3. **构建查询**:
+4. **构建查询**:
    - 使用chatbi_query工具，必须提供database参数
    - 如果知道表名，务必提供table参数以提高准确性
-4. **分析结果**: 解读数据，提供有价值的洞察
-5. **推荐可视化**: 建议最适合展示该数据的图表类型
+   - 对于时间对比分析，在question中明确说明需要对比的时间段
+5. **分析结果**: 解读数据，提供有价值的洞察，对于时间对比要明确给出增长率
+6. **推荐可视化**: 建议最适合展示该数据的图表类型（时间对比建议使用折线图、柱状图）
 
 ## 表上下文处理规则：
 - 用户输入中的"#数据库名.表名"表示当前选择的表
@@ -170,6 +225,8 @@ class ChatBIAgent(BaseAgent):
         Returns:
             str: Agent响应
         """
+        log_prefix = "[chatbi_agent.py::ChatBIAgent::invoke]"
+
         # 从kwargs中获取表上下文，或从消息中提取
         table_context = kwargs.get('table_context')
 
@@ -182,15 +239,27 @@ class ChatBIAgent(BaseAgent):
         # 格式化对话历史
         formatted_history = []
         if chat_history:
-            formatted_history = self.format_chat_history(chat_history[-6:])  # 只保留最近6条
+            formatted_history = self.format_chat_history(chat_history[-2:])  # 只保留最近2条
 
         try:
             result = self.agent_executor.invoke({
                 "input": enhanced_message,
                 "chat_history": formatted_history
             })
-            return result.get("output", "抱歉，我无法生成回复。")
+            output = result.get("output", "抱歉，我无法生成回复。")
+            llm_logcontent = {
+                "request": {
+                    "input": message,
+                    "enhanced_message": enhanced_message,
+                    "chat_history": formatted_history
+                },
+                "response": output
+            }
+            logger.info(f"{log_prefix} 【LLM请求】:{llm_logcontent['request']}，【LLM响应】:{llm_logcontent['response']}")
+
+            return output
         except Exception as e:
+            logger.error(f"【错误】Agent执行失败: {str(e)}")
             return f"处理您的请求时发生错误: {str(e)}"
 
     def stream(self, message: str, chat_history: Optional[List] = None, **kwargs):
@@ -214,7 +283,7 @@ class ChatBIAgent(BaseAgent):
         # 格式化对话历史
         formatted_history = []
         if chat_history:
-            formatted_history = self.format_chat_history(chat_history[-6:])
+            formatted_history = self.format_chat_history(chat_history[-2:])
 
         try:
             result = self.agent_executor.invoke({
@@ -241,6 +310,7 @@ class ChatBIAgent(BaseAgent):
             "数据库表结构查询",
             "数据分析和洞察",
             "图表类型推荐",
-            "表上下文管理"
+            "表上下文管理",
+            "时间对比分析（同比、环比、同期）"
         ]
         return base_info
