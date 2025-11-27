@@ -283,6 +283,14 @@ class ChatBIAnalyzer:
         logger.info(f"【请求】用户问题: {question}")
         logger.info(f"【请求】Schema信息:\n{schema_info}")
 
+        # 渲染prompt并记录
+        formatted_messages = prompt.format_messages(question=question, schema_info=schema_info)
+        logger.info(f"【Prompt渲染结果】共 {len(formatted_messages)} 条消息:")
+        for i, msg in enumerate(formatted_messages, 1):
+            logger.info(f"  消息{i} [{msg.type}]:")
+            logger.info(f"{msg.content}")
+            logger.info("-" * 100)
+
         chain = prompt | self.llm
         response = chain.invoke({
             "question": question,
@@ -382,6 +390,20 @@ class ChatBIAnalyzer:
         logger.info(f"【请求】数据列名: {', '.join(columns)}")
         logger.info(f"【请求】数据行数: {row_count}")
         logger.info(f"【请求】数据统计:\n{data_stats}")
+
+        # 渲染prompt并记录
+        formatted_messages = prompt.format_messages(
+            question=question,
+            columns=", ".join(columns),
+            row_count=row_count,
+            sample_data=sample_data,
+            data_stats=data_stats
+        )
+        logger.info(f"【Prompt渲染结果】共 {len(formatted_messages)} 条消息:")
+        for i, msg in enumerate(formatted_messages, 1):
+            logger.info(f"  消息{i} [{msg.type}]:")
+            logger.info(f"{msg.content}")
+            logger.info("-" * 100)
 
         chain = prompt | self.llm
         response = chain.invoke({
