@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from app.agents.base_agent import BaseAgent
 from app.tools.chatbi_tool import chatbi_query, chatbi_get_schema
+from app.config import settings
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -29,10 +30,11 @@ class ChatBIAgent(BaseAgent):
         # 初始化LLM
         try:
             self.llm = ChatTongyi(
-                model=os.getenv("QWEN_MODEL", "qwen3-max"),
-                temperature=float(os.getenv("QWEN_TEMPERATURE", "0.3")),  # 数据分析需要更精确
-                max_tokens=int(os.getenv("QWEN_MAX_TOKENS", "2000")),
-                dashscope_api_key=os.getenv("DASHSCOPE_API_KEY")
+                model=settings.QWEN_MODEL,
+                temperature=settings.QWEN_TEMPERATURE,
+                max_tokens=settings.QWEN_MAX_TOKENS,
+                max_retries=settings.QWEN_MAX_RETRIES,
+                dashscope_api_key=settings.DASHSCOPE_API_KEY
             )
         except Exception as e:
             logger.error(f"【错误】ChatTongyi模型初始化失败: {str(e)}")

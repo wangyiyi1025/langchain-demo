@@ -389,10 +389,10 @@ class ChatBIAnalyzer:
         """初始化分析器"""
         try:
             self.llm = ChatTongyi(
-            model=settings.QWEN_MODEL,
-            temperature=0.1,  # 较低的温度以获得更准确的SQL
-            max_tokens=2000,
-            max_retries=1,
+                model=settings.QWEN_MODEL,
+                temperature=settings.QWEN_TEMPERATURE,
+                max_tokens=settings.QWEN_MAX_TOKENS,
+                max_retries=settings.QWEN_MAX_RETRIES,
             )
         except Exception as e:
             logger.error(f"【错误】ChatTongyi模型初始化失败: {str(e)}")

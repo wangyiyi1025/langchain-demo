@@ -27,9 +27,10 @@ class Settings(BaseSettings):
 
     # 千问配置
     DASHSCOPE_API_KEY: str
-    QWEN_MODEL: str = "qwen3-max"
+    QWEN_MODEL: str = "qwen-plus"
     QWEN_TEMPERATURE: float = 0.7
     QWEN_MAX_TOKENS: int = 2000
+    QWEN_MAX_RETRIES: int = 2
 
     # Agent配置
     AGENT_MAX_ITERATIONS: int = 5
