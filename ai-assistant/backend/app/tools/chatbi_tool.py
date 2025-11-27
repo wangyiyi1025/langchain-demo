@@ -202,10 +202,7 @@ class ChatBIAnalyzer:
     def natural_language_to_sql(self, question: str, schema_info: str) -> str:
         """将自然语言问题转换为SQL查询"""
 
-        logger.info("="*80)
-        logger.info("【自然语言转SQL】开始处理")
-        logger.info(f"用户问题: {question}")
-        logger.info(f"Schema信息:\n{schema_info}")
+        log_prefix = "[chatbi_tool.py::ChatBIAnalyzer::natural_language_to_sql]"
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个专业的SQL专家。根据用户的自然语言问题和表结构信息，生成对应的SQL查询语句。
@@ -279,11 +276,12 @@ class ChatBIAnalyzer:
             ("human", "{question}")
         ])
 
-        # 记录完整的prompt
-        formatted_prompt = prompt.format_messages(question=question, schema_info=schema_info)
-        logger.debug("发送给LLM的完整Prompt:")
-        for msg in formatted_prompt:
-            logger.debug(f"  [{msg.type}] {msg.content[:500]}...")
+        # 记录LLM调用
+        logger.info(f"\n{'='*100}")
+        logger.info(f"{log_prefix} LLM调用开始")
+        logger.info(f"{'='*100}")
+        logger.info(f"【请求】用户问题: {question}")
+        logger.info(f"【请求】Schema信息:\n{schema_info}")
 
         chain = prompt | self.llm
         response = chain.invoke({
@@ -291,8 +289,7 @@ class ChatBIAnalyzer:
             "schema_info": schema_info
         })
 
-        # 记录LLM的原始响应
-        logger.info(f"LLM原始响应:\n{response.content}")
+        logger.info(f"【响应】LLM原始返回:\n{response.content}")
 
         # 提取SQL语句（清理可能的markdown代码块格式）
         sql = response.content.strip()
@@ -304,22 +301,18 @@ class ChatBIAnalyzer:
             sql = sql[:-3]
 
         sql = sql.strip()
-        logger.info(f"提取后的SQL语句:\n{sql}")
-        logger.info("【自然语言转SQL】处理完成")
-        logger.info("="*80)
+        logger.info(f"【结果】提取的SQL: {sql}")
+        logger.info(f"{log_prefix} LLM调用完成")
+        logger.info(f"{'='*100}\n")
 
         return sql
 
     def analyze_data_and_suggest_chart(self, data: List[Dict], question: str) -> Dict[str, Any]:
         """分析数据并建议合适的图表类型"""
 
-        logger.info("="*80)
-        logger.info("【数据分析与图表建议】开始处理")
-        logger.info(f"用户问题: {question}")
-        logger.info(f"数据行数: {len(data)}")
+        log_prefix = "[chatbi_tool.py::ChatBIAnalyzer::analyze_data_and_suggest_chart]"
 
         if not data:
-            logger.warning("查询结果为空，返回默认配置")
             return {
                 "chart_type": "none",
                 "reason": "查询结果为空",
@@ -381,10 +374,14 @@ class ChatBIAnalyzer:
 
         data_stats = "\n".join(stats_info)
 
-        # 记录发送给LLM的数据信息
-        logger.info(f"数据列名: {', '.join(columns)}")
-        logger.info(f"数据统计信息:\n{data_stats}")
-        logger.debug(f"数据示例:\n{sample_data}")
+        # 记录LLM调用
+        logger.info(f"\n{'='*100}")
+        logger.info(f"{log_prefix} LLM调用开始")
+        logger.info(f"{'='*100}")
+        logger.info(f"【请求】用户问题: {question}")
+        logger.info(f"【请求】数据列名: {', '.join(columns)}")
+        logger.info(f"【请求】数据行数: {row_count}")
+        logger.info(f"【请求】数据统计:\n{data_stats}")
 
         chain = prompt | self.llm
         response = chain.invoke({
@@ -395,8 +392,7 @@ class ChatBIAnalyzer:
             "data_stats": data_stats
         })
 
-        # 记录LLM的原始响应
-        logger.info(f"LLM原始响应:\n{response.content}")
+        logger.info(f"【响应】LLM原始返回:\n{response.content}")
 
         try:
             # 解析JSON响应
@@ -409,22 +405,21 @@ class ChatBIAnalyzer:
                 content = content[:-3]
 
             suggestion = json.loads(content.strip())
-            logger.info(f"解析后的图表建议: {json.dumps(suggestion, ensure_ascii=False, indent=2)}")
-            logger.info("【数据分析与图表建议】处理完成")
-            logger.info("="*80)
+            logger.info(f"【结果】图表建议: {json.dumps(suggestion, ensure_ascii=False, indent=2)}")
+            logger.info(f"{log_prefix} LLM调用完成")
+            logger.info(f"{'='*100}\n")
             return suggestion
         except Exception as e:
             # 如果解析失败，返回默认建议
-            logger.error(f"解析图表建议失败: {str(e)}")
-            logger.error(f"原始响应内容: {response.content}")
+            logger.error(f"【错误】解析失败: {str(e)}")
             default_suggestion = {
                 "chart_type": "table",
                 "reason": f"无法解析建议: {str(e)}",
                 "title": "查询结果"
             }
-            logger.info(f"返回默认建议: {json.dumps(default_suggestion, ensure_ascii=False)}")
-            logger.info("【数据分析与图表建议】处理完成（使用默认值）")
-            logger.info("="*80)
+            logger.info(f"【结果】使用默认建议: {json.dumps(default_suggestion, ensure_ascii=False)}")
+            logger.info(f"{log_prefix} LLM调用完成（失败，使用默认值）")
+            logger.info(f"{'='*100}\n")
             return default_suggestion
 
     def generate_chart_config(self, data: List[Dict], chart_suggestion: Dict) -> Dict[str, Any]:
@@ -469,65 +464,34 @@ class ChatBIAnalyzer:
         Returns:
             分析结果的JSON字符串
         """
-        logger.info("\n" + "="*100)
-        logger.info("【ChatBI 分析流程】开始")
-        logger.info(f"用户问题: {question}")
-        logger.info(f"指定数据库: {database if database else '未指定'}")
-        logger.info(f"指定表: {table if table else '未指定'}")
-        logger.info("="*100)
-
         try:
             # 连接数据库
-            logger.info("步骤 1/5: 连接数据库...")
             self.db.connect()
-            logger.info("✓ 数据库连接成功")
 
-            # 获取schema信息
-            logger.info("步骤 2/5: 获取Schema信息...")
-
-            # 如果指定了表，只获取该表的schema（推荐方式）
+            # 获取schema信息（如果指定了表，只获取该表的schema）
             if database and table:
-                logger.info(f"获取指定表的Schema: {database}.{table}")
                 schema_info = self.db.get_table_schema(database, table)
-            # 否则获取整个数据库或所有数据库的schema
             else:
-                if database:
-                    logger.warning(f"仅指定数据库 {database}，未指定表名，将获取数据库所有表的Schema（可能影响性能）")
-                else:
-                    logger.warning("未指定数据库和表，将获取所有数据库的Schema（可能影响性能）")
                 schema_info = self.db.get_database_schema(database)
 
-            logger.debug(f"Schema信息:\n{schema_info[:500]}...")
-
             if "失败" in schema_info:
-                logger.error(f"获取Schema失败: {schema_info}")
                 return json.dumps({
                     "success": False,
                     "error": "无法获取数据库schema信息",
                     "schema_info": schema_info
                 }, ensure_ascii=False, indent=2)
 
-            logger.info("✓ Schema信息获取成功")
-
-            # 生成SQL
-            logger.info("步骤 3/5: 调用LLM生成SQL查询...")
+            # 生成SQL（会有LLM调用日志）
             sql = self.natural_language_to_sql(question, schema_info)
-            logger.info(f"✓ SQL生成成功: {sql}")
 
             # 执行查询
-            logger.info("步骤 4/5: 执行SQL查询...")
             result_data = self.db.execute_query(sql)
-            logger.info(f"✓ 查询执行成功，返回 {len(result_data)} 行数据")
 
-            # 分析数据并建议图表
-            logger.info("步骤 5/5: 调用LLM分析数据并建议图表类型...")
+            # 分析数据并建议图表（会有LLM调用日志）
             chart_suggestion = self.analyze_data_and_suggest_chart(result_data, question)
-            logger.info(f"✓ 图表建议生成成功: {chart_suggestion.get('chart_type', 'unknown')}")
 
             # 生成图表配置
-            logger.info("生成图表配置...")
             chart_config = self.generate_chart_config(result_data, chart_suggestion)
-            logger.debug(f"图表配置: {json.dumps(chart_config, ensure_ascii=False, indent=2)}")
 
             # 准备返回结果
             response = {
@@ -541,18 +505,10 @@ class ChatBIAnalyzer:
                 "message": f"成功执行查询，返回 {len(result_data)} 行数据"
             }
 
-            logger.info("="*100)
-            logger.info("【ChatBI 分析流程】成功完成")
-            logger.info("="*100 + "\n")
-
             return json.dumps(response, ensure_ascii=False, indent=2, cls=DateTimeEncoder)
 
         except Exception as e:
-            logger.error("="*100)
-            logger.error("【ChatBI 分析流程】执行失败")
-            logger.error(f"错误信息: {str(e)}")
-            logger.error("="*100 + "\n")
-
+            logger.error(f"[chatbi_tool.py::ChatBIAnalyzer::analyze] 执行失败: {str(e)}")
             return json.dumps({
                 "success": False,
                 "error": str(e),
@@ -561,7 +517,6 @@ class ChatBIAnalyzer:
 
         finally:
             # 关闭数据库连接
-            logger.debug("关闭数据库连接...")
             self.db.close()
 
 

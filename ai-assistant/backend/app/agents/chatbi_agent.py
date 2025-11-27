@@ -3,6 +3,7 @@ ChatBI数据分析Agent - 专门用于数据库查询和分析
 """
 import os
 import sys
+import logging
 from typing import List, Optional, Dict, Any
 from langchain_community.chat_models import ChatTongyi
 from langchain.agents import create_tool_calling_agent, AgentExecutor
@@ -13,6 +14,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from app.agents.base_agent import BaseAgent
 from app.tools.chatbi_tool import chatbi_query, chatbi_get_schema
+
+# 配置日志
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class ChatBIAgent(BaseAgent):
@@ -216,6 +221,8 @@ class ChatBIAgent(BaseAgent):
         Returns:
             str: Agent响应
         """
+        log_prefix = "[chatbi_agent.py::ChatBIAgent::invoke]"
+
         # 从kwargs中获取表上下文，或从消息中提取
         table_context = kwargs.get('table_context')
 
@@ -230,13 +237,30 @@ class ChatBIAgent(BaseAgent):
         if chat_history:
             formatted_history = self.format_chat_history(chat_history[-6:])  # 只保留最近6条
 
+        # 记录Agent调用
+        logger.info(f"\n{'='*100}")
+        logger.info(f"{log_prefix} Agent执行开始")
+        logger.info(f"{'='*100}")
+        logger.info(f"【请求】用户消息: {message}")
+        logger.info(f"【请求】增强消息: {enhanced_message}")
+        logger.info(f"【请求】对话历史条数: {len(formatted_history)}")
+
         try:
             result = self.agent_executor.invoke({
                 "input": enhanced_message,
                 "chat_history": formatted_history
             })
-            return result.get("output", "抱歉，我无法生成回复。")
+            output = result.get("output", "抱歉，我无法生成回复。")
+
+            logger.info(f"【响应】Agent返回:\n{output}")
+            logger.info(f"{log_prefix} Agent执行完成")
+            logger.info(f"{'='*100}\n")
+
+            return output
         except Exception as e:
+            logger.error(f"【错误】Agent执行失败: {str(e)}")
+            logger.info(f"{log_prefix} Agent执行完成（失败）")
+            logger.info(f"{'='*100}\n")
             return f"处理您的请求时发生错误: {str(e)}"
 
     def stream(self, message: str, chat_history: Optional[List] = None, **kwargs):
