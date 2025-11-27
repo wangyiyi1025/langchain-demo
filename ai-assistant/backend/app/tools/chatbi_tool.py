@@ -26,6 +26,201 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+# 时间对比分析说明
+# 用于指导LLM正确理解和处理同比、环比、同期等时间对比分析需求
+# 放在这里以便后续扩展和维护
+# 可以在生成SQL的prompt中引用
+time_period_analysis_instructions = """
+
+### 1. 同比(Year-over-Year, YoY) - 重点!!!
+- **定义**: 与去年同一时期相比的变化情况
+- **识别关键词**: \"同比\"、\"去年同期\"、\"上年同期\"、\"与去年相比\"、\"YoY\"
+- **必须查询的数据**: 
+  - 当前期间的数据
+  - 去年同期的数据(日期减1年)
+- **SQL实现要点**:
+  ```sql
+  -- 错误示例(只查当年):
+  SELECT ... FROM table WHERE YEAR(date_field) = 2025
+  
+  -- 正确示例(查询两年并对比):
+  SELECT 
+    this_year.metric as current_value,
+    last_year.metric as last_year_value,
+    ((this_year.metric - last_year.metric) / last_year.metric * 100) as yoy_growth_rate
+  FROM (
+    SELECT ... FROM table WHERE YEAR(date_field) = 2025
+  ) this_year
+  LEFT JOIN (
+    SELECT ... FROM table WHERE YEAR(date_field) = 2024
+  ) last_year
+  ON this_year.dimension = last_year.dimension
+  ```
+
+### 2. 环比(Period-over-Period) - 重点!!!
+- **定义**: 与上一个相邻周期相比的变化情况
+- **识别关键词**: \"环比\"、\"上月\"、\"上季度\"、\"上周\"、\"较上期\"、\"MoM\"、\"QoQ\"
+- **必须查询的数据**:
+  - 当前期间的数据
+  - 上一个相邻期间的数据
+- **SQL实现要点**:
+  - 月环比: DATE_SUB(date_field, INTERVAL 1 MONTH)
+  - 季度环比: DATE_SUB(date_field, INTERVAL 1 QUARTER)
+  - 周环比: DATE_SUB(date_field, INTERVAL 1 WEEK)
+
+### 3. 同期 - **重点理解!!!**
+- **定义**: 截止到某个时间点的累计时间段,强调\"到目前为止\"的概念
+- **识别关键词**: \"同期\"、\"年初至今\"、\"累计\"、\"截至目前\"
+- **与\"同比\"的区别**:
+  - \"同比\": 强调对比维度(与去年对比)
+  - \"同期\": 强调时间范围(截止到当前时点的累计)
+  - \"同期同比\": 两者结合,指截止当前时点的累计数据与去年同一时点的累计数据对比
+
+- **时间范围计算**:
+  
+  **场景A: \"2025年同期\"(最常见)**
+  - 含义: 2025年年初至当前日期(2025-11-27)的累计数据
+  - 本年同期: 2025-01-01 至 2025-11-27
+  - 去年同期: 2024-01-01 至 2024-11-27
+  - SQL条件: `filing_time >= '2025-01-01' AND filing_time <= '2025-11-27'`
+  
+  **场景B: \"2025年Q3同期\"**
+  - 含义: 2025年Q3期间与2024年Q3期间对比
+  - 本年同期: 2025-07-01 至 2025-09-30
+  - 去年同期: 2024-07-01 至 2024-09-30
+  
+  **场景C: \"本月同期\"**
+  - 含义: 本月1日至今天的累计数据
+  - 本月同期: 2025-11-01 至 2025-11-27
+  - 上月同期: 2024-11-01 至 2024-11-27
+
+- **关键判断逻辑**:
+  ```
+  如果用户问题包含\"同期\":
+    1. 识别时间基准(年/季度/月)
+    2. 计算\"截止到当前\"的日期范围
+    3. 计算去年对应的日期范围
+    4. 使用精确的日期条件而非YEAR()函数
+  ```
+## 典型场景SQL模板:
+### 场景1: 年度同比(如\"2025年XX同比增长前五\"，不含\"同期\"关键词)
+**分析步骤**:
+1. 识别: \"2025年\" + \"同比\" → 需要对比2025年和2024年
+2. 识别: \"增长前五\" → 需要计算增长值/增长率并排序取前5
+3. 构建: 分别查询2025和2024数据,JOIN后计算增长
+
+**SQL结构**:
+```sql
+SELECT 
+  t1.dimension_field,
+  t1.metric_2025,
+  t2.metric_2024,
+  (t1.metric_2025 - t2.metric_2024) as growth_value,
+  ROUND((t1.metric_2025 - t2.metric_2024) / t2.metric_2024 * 100, 2) as growth_rate
+FROM (
+  SELECT dimension_field, COUNT(*) as metric_2025
+  FROM table_name
+  WHERE YEAR(date_field) = 2025
+  GROUP BY dimension_field
+) t1
+LEFT JOIN (
+  SELECT dimension_field, COUNT(*) as metric_2024
+  FROM table_name
+  WHERE YEAR(date_field) = 2024
+  GROUP BY dimension_field
+) t2 ON t1.dimension_field = t2.dimension_field
+WHERE t2.metric_2024 IS NOT NULL AND t2.metric_2024 > 0
+ORDER BY growth_value DESC
+LIMIT 5;
+```
+
+### 场景2: 月度同比(如\"3月销售额同比\",不含\"同期\"关键词) 
+```sql
+SELECT 
+  t1.sales_amount_current,
+  t2.sales_amount_last_year,
+  (t1.sales_amount_current - t2.sales_amount_last_year) as yoy_growth
+FROM (
+  SELECT SUM(sales_amount) as sales_amount_current
+  FROM table_name
+  WHERE YEAR(date_field) = 2025 AND MONTH(date_field) = 3
+) t1
+CROSS JOIN (
+  SELECT SUM(sales_amount) as sales_amount_last_year
+  FROM table_name
+  WHERE YEAR(date_field) = 2024 AND MONTH(date_field) = 3
+) t2;
+```
+
+### 场景3: 年度同期同比(含\"同期\"关键词) - **重点!!!**
+**用户问题**: \"2025年XX同期同比增长最多\"
+**时间范围**: 2025-01-01至2025-11-27 vs 2024-01-01至2024-11-27(相对当前时间范围)
+**关键点**: 必须使用精确日期范围,不能使用YEAR()函数
+**SQL结构**:
+```sql
+SELECT 
+  t1.dimension_field,
+  t1.metric_current_period,
+  t2.metric_last_year_period,
+  (t1.metric_current_period - t2.metric_last_year_period) as growth_value,
+  ROUND((t1.metric_current_period - t2.metric_last_year_period) / t2.metric_last_year_period * 100, 2) as growth_rate
+FROM (
+  -- 本年同期: 2025-01-01 至 2025-11-27
+  SELECT dimension_field, COUNT(*) as metric_current_period
+  FROM table_name
+  WHERE date_field >= '2025-01-01' AND date_field <= '2025-11-27'
+  GROUP BY dimension_field
+) t1
+LEFT JOIN (
+  -- 去年同期: 2024-01-01 至 2024-11-27
+  SELECT dimension_field, COUNT(*) as metric_last_year_period
+  FROM table_name
+  WHERE date_field >= '2024-01-01' AND date_field <= '2024-11-27'
+  GROUP BY dimension_field
+) t2 ON t1.dimension_field = t2.dimension_field
+WHERE t2.metric_last_year_period IS NOT NULL AND t2.metric_last_year_period > 0
+ORDER BY growth_value DESC
+LIMIT 5;
+```
+
+### 场景4: 月度同期同比
+**用户问题**: \"本月XX同期同比\"
+**时间范围**: 2025-11-01至2025-11-27 vs 2024-11-01至2024-11-27
+```sql
+SELECT 
+  t1.metric_current,
+  t2.metric_last_year,
+  (t1.metric_current - t2.metric_last_year) as growth
+FROM (
+  SELECT COUNT(*) as metric_current
+  FROM table_name
+  WHERE date_field >= '2025-11-01' AND date_field <= '2025-11-27'
+) t1
+CROSS JOIN (
+  SELECT COUNT(*) as metric_last_year
+  FROM table_name
+  WHERE date_field >= '2024-11-01' AND date_field <= '2024-11-27'
+) t2;
+```
+### 场景5: 月度环比(如\"本月销售额环比上月\")
+```sql
+SELECT 
+  t1.sales_current_month,
+  t2.sales_last_month,
+  (t1.sales_current_month - t2.sales_last_month) / t2.sales_last_month * 100 as mom_rate
+FROM (
+  SELECT SUM(sales_amount) as sales_current_month
+  FROM table_name
+  WHERE YEAR(date_field) = 2025 AND MONTH(date_field) = 11
+) t1
+CROSS JOIN (
+  SELECT SUM(sales_amount) as sales_last_month
+  FROM table_name
+  WHERE YEAR(date_field) = 2025 AND MONTH(date_field) = 10
+) t2;
+```
+
+"""
 
 class DateTimeEncoder(json.JSONEncoder):
     """自定义JSON编码器，处理datetime、date和Decimal类型"""
@@ -203,14 +398,20 @@ class ChatBIAnalyzer:
         """将自然语言问题转换为SQL查询"""
 
         log_prefix = "[chatbi_tool.py::ChatBIAnalyzer::natural_language_to_sql]"
-        
-        current_year = datetime.now().year
-        current_month = datetime.now().month
-        current_day = datetime.now().day    
+    
+        current_date = datetime.now().date()
+        current_date_format = current_date.strftime("%Y年%m月%d日")
+        current_year = current_date.year
+        current_month = current_date.month
+        current_day = current_date.day_of_year
         prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个专业的SQL专家。根据用户的自然语言问题和表结构信息,生成对应的SQL查询语句。
 
-**当前时间上下文**: 当前年份是{current_year}年,当前月份是{current_month}月,当前日期是{current_day}日。
+**当前时间上下文**: 
+- 当前完整日期: {current_date_format}
+- 当前年份: {current_year}年
+- 当前月份: {current_month}月
+- 当前日期在年内: 第{current_day}天 ({current_year}-01-01 到 {current_date_format})
 
 重要要求:
 1. **只返回SQL语句,不要有任何其他说明文字**
@@ -219,118 +420,9 @@ class ChatBIAnalyzer:
 4. 如果需要限制返回行数,默认使用 LIMIT 100
 5. 确保SQL语句的安全性,防止SQL注入
 6. 优先使用schema中明确提供的字段名,不要臆测
-7. **对于时间对比分析需求(同比、环比、同期),必须查询两个时间段的数据并进行对比**
+7. **对于时间对比分析需求(同比、环比、同期),必须准确理解时间范围并查询对应数据**
 
-## 时间对比分析核心概念:
-
-### 1. 同比(Year-over-Year, YoY) - 重点!!!
-- **定义**: 与去年同一时期相比的变化情况
-- **识别关键词**: \"同比\"、\"去年同期\"、\"上年同期\"、\"与去年相比\"、\"YoY\"
-- **必须查询的数据**: 
-  - 当前期间的数据
-  - 去年同期的数据(日期减1年)
-- **SQL实现要点**:
-  ```sql
-  -- 错误示例(只查当年):
-  SELECT ... FROM table WHERE YEAR(date_field) = 2025
-  
-  -- 正确示例(查询两年并对比):
-  SELECT 
-    this_year.metric as current_value,
-    last_year.metric as last_year_value,
-    ((this_year.metric - last_year.metric) / last_year.metric * 100) as yoy_growth_rate
-  FROM (
-    SELECT ... FROM table WHERE YEAR(date_field) = 2025
-  ) this_year
-  LEFT JOIN (
-    SELECT ... FROM table WHERE YEAR(date_field) = 2024
-  ) last_year
-  ON this_year.dimension = last_year.dimension
-  ```
-
-### 2. 环比(Period-over-Period)
-- **定义**: 与上一个相邻周期相比的变化情况
-- **识别关键词**: \"环比\"、\"上月\"、\"上季度\"、\"上周\"、\"较上期\"、\"MoM\"、\"QoQ\"
-- **必须查询的数据**:
-  - 当前期间的数据
-  - 上一个相邻期间的数据
-- **SQL实现要点**:
-  - 月环比: DATE_SUB(date_field, INTERVAL 1 MONTH)
-  - 季度环比: DATE_SUB(date_field, INTERVAL 1 QUARTER)
-  - 周环比: DATE_SUB(date_field, INTERVAL 1 WEEK)
-
-### 3. 同期
-- **定义**: 去年的相同时间段,是同比分析的对比基准
-- **与同比的关系**: \"同期\"通常指去年同期,与\"同比\"配合使用
-
-## 典型场景SQL模板:
-
-### 场景1: 年度同比(如\"2025年XX同比增长前五\")
-**分析步骤**:
-1. 识别: \"2025年\" + \"同比\" → 需要对比2025年和2024年
-2. 识别: \"增长前五\" → 需要计算增长值/增长率并排序取前5
-3. 构建: 分别查询2025和2024数据,JOIN后计算增长
-
-**SQL结构**:
-```sql
-SELECT 
-  t1.dimension_field,
-  t1.metric_2025,
-  t2.metric_2024,
-  (t1.metric_2025 - t2.metric_2024) as growth_value,
-  ROUND((t1.metric_2025 - t2.metric_2024) / t2.metric_2024 * 100, 2) as growth_rate
-FROM (
-  SELECT dimension_field, COUNT(*) as metric_2025
-  FROM table_name
-  WHERE YEAR(date_field) = 2025
-  GROUP BY dimension_field
-) t1
-LEFT JOIN (
-  SELECT dimension_field, COUNT(*) as metric_2024
-  FROM table_name
-  WHERE YEAR(date_field) = 2024
-  GROUP BY dimension_field
-) t2 ON t1.dimension_field = t2.dimension_field
-WHERE t2.metric_2024 IS NOT NULL AND t2.metric_2024 > 0
-ORDER BY growth_value DESC
-LIMIT 5;
-```
-
-### 场景2: 月度同比(如\"3月销售额同比\")
-```sql
-SELECT 
-  t1.sales_amount_current,
-  t2.sales_amount_last_year,
-  (t1.sales_amount_current - t2.sales_amount_last_year) as yoy_growth
-FROM (
-  SELECT SUM(sales_amount) as sales_amount_current
-  FROM table_name
-  WHERE YEAR(date_field) = 2025 AND MONTH(date_field) = 3
-) t1
-CROSS JOIN (
-  SELECT SUM(sales_amount) as sales_amount_last_year
-  FROM table_name
-  WHERE YEAR(date_field) = 2024 AND MONTH(date_field) = 3
-) t2;
-```
-
-### 场景3: 月度环比(如\"本月销售额环比上月\")
-```sql
-SELECT 
-  t1.sales_current_month,
-  t2.sales_last_month,
-  (t1.sales_current_month - t2.sales_last_month) / t2.sales_last_month * 100 as mom_rate
-FROM (
-  SELECT SUM(sales_amount) as sales_current_month
-  FROM table_name
-  WHERE YEAR(date_field) = 2025 AND MONTH(date_field) = 11
-) t1
-CROSS JOIN (
-  SELECT SUM(sales_amount) as sales_last_month
-  FROM table_name
-  WHERE YEAR(date_field) = 2025 AND MONTH(date_field) = 10
-) t2;
-```
+{time_period_analysis_infomation}
 
 ## 关键检查清单:
 遇到同比/环比问题时,请自检:
@@ -357,11 +449,19 @@ CROSS JOIN (
 """),
             ("human", "{question}")
         ])
-
+        
+        # 节约点token
+        time_period_analysis_infomation ="" 
+        if question.find("同比") != -1 or question.find("环比") != -1 or question.find("同期") != -1 :
+            time_period_analysis_infomation = time_period_analysis_instructions
+        
         # 渲染prompt并记录
-        formatted_messages = prompt.format_messages(question=question, schema_info=schema_info, 
-                                                    current_month=current_month, current_year=current_year, 
-                                                    current_day=current_day)
+        formatted_messages = prompt.format_messages(question=question, 
+                                                    schema_info=schema_info, 
+                                                    current_month=current_month, 
+                                                    current_year=current_year, 
+                                                    current_date_format=current_date_format,
+                                                    time_period_analysis_infomation=time_period_analysis_infomation)
         llm_logcontent = {}
         for i, msg in enumerate(formatted_messages, 1):
             llm_logcontent[f"message_{i}"] = msg.content
@@ -372,7 +472,8 @@ CROSS JOIN (
             "schema_info": schema_info,
             "current_month": current_month,
             "current_year": current_year,
-            "current_day": current_day
+            "current_date_format": current_date_format,
+            "time_period_analysis_infomation": time_period_analysis_infomation
         })
         logger.info(f"{log_prefix} 【LLM请求】:{llm_logcontent}，【LLM响应】:{response.content}")
 
