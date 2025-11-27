@@ -35,7 +35,8 @@ class ChatBIAgent(BaseAgent):
                 max_tokens=settings.QWEN_MAX_TOKENS,
                 max_retries=settings.QWEN_MAX_RETRIES,
                 dashscope_api_key=settings.DASHSCOPE_API_KEY,
-                base_url=settings.DASHSCOPE_BASE_URL
+                base_url=settings.DASHSCOPE_BASE_URL,
+                streaming=False  # 禁用流式输出以避免tool calling解析错误
             )
         except Exception as e:
             logger.error(f"【错误】ChatTongyi模型初始化失败: {str(e)}")
