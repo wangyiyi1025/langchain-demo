@@ -27,6 +27,7 @@ class Settings(BaseSettings):
 
     # 千问配置
     DASHSCOPE_API_KEY: str
+    DASHSCOPE_BASE_URL: str = "https://dashscope.aliyuncs.com/api/v1"
     QWEN_MODEL: str = "qwen-plus"
     QWEN_TEMPERATURE: float = 0.7
     QWEN_MAX_TOKENS: int = 2000
