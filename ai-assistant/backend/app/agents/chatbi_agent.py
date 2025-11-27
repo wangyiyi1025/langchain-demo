@@ -27,12 +27,16 @@ class ChatBIAgent(BaseAgent):
         super().__init__()
 
         # 初始化LLM
-        self.llm = ChatTongyi(
-            model=os.getenv("QWEN_MODEL", "qwen3-max"),
-            temperature=float(os.getenv("QWEN_TEMPERATURE", "0.3")),  # 数据分析需要更精确
-            max_tokens=int(os.getenv("QWEN_MAX_TOKENS", "2000")),
-            dashscope_api_key=os.getenv("DASHSCOPE_API_KEY")
-        )
+        try:
+            self.llm = ChatTongyi(
+                model=os.getenv("QWEN_MODEL", "qwen3-max"),
+                temperature=float(os.getenv("QWEN_TEMPERATURE", "0.3")),  # 数据分析需要更精确
+                max_tokens=int(os.getenv("QWEN_MAX_TOKENS", "2000")),
+                dashscope_api_key=os.getenv("DASHSCOPE_API_KEY")
+            )
+        except Exception as e:
+            logger.error(f"【错误】ChatTongyi模型初始化失败: {str(e)}")
+            raise
 
         # ChatBI专用工具
         self.tools = [

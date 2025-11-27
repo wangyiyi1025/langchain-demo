@@ -387,12 +387,16 @@ class ChatBIAnalyzer:
 
     def __init__(self):
         """初始化分析器"""
-        self.llm = ChatTongyi(
+        try:
+            self.llm = ChatTongyi(
             model=settings.QWEN_MODEL,
             temperature=0.1,  # 较低的温度以获得更准确的SQL
             max_tokens=2000,
             max_retries=1,
-        )
+            )
+        except Exception as e:
+            logger.error(f"【错误】ChatTongyi模型初始化失败: {str(e)}")
+            raise
         self.db = StarrocksConnection()
 
     def natural_language_to_sql(self, question: str, schema_info: str) -> str:
