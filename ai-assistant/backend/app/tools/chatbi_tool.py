@@ -391,6 +391,7 @@ class ChatBIAnalyzer:
             model=settings.QWEN_MODEL,
             temperature=0.1,  # 较低的温度以获得更准确的SQL
             max_tokens=2000,
+            max_retries=1,
         )
         self.db = StarrocksConnection()
 
