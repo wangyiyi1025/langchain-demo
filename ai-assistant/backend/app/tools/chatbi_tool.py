@@ -81,7 +81,7 @@ class StarrocksConnection:
             raise Exception(f"SQL执行失败: {str(e)}")
 
     def get_database_schema(self, database: Optional[str] = None) -> str:
-        """获取数据库schema信息"""
+        """获取数据库schema信息，包含表注释和字段注释"""
         try:
             schema_info = []
 
@@ -107,14 +107,27 @@ class StarrocksConnection:
 
                     for table_row in tables[:5]:  # 只显示前5个表
                         table_name = list(table_row.values())[0]
-                        schema_info.append(f"\n  表: {db}.{table_name}")
 
-                        # 获取表结构
-                        cursor.execute(f"DESC {db}.{table_name}")
+                        # 获取表注释
+                        cursor.execute(f"SHOW TABLE STATUS FROM {db} LIKE '{table_name}'")
+                        table_status = cursor.fetchone()
+                        table_comment = ""
+                        if table_status and table_status.get('Comment'):
+                            table_comment = f" // {table_status['Comment']}"
+
+                        schema_info.append(f"\n  表: {db}.{table_name}{table_comment}")
+
+                        # 获取表结构（包含字段注释）
+                        cursor.execute(f"SHOW FULL COLUMNS FROM {db}.{table_name}")
                         columns = cursor.fetchall()
 
                         for col in columns:
-                            schema_info.append(f"    - {col['Field']} ({col['Type']})")
+                            field_name = col['Field']
+                            field_type = col['Type']
+                            # 获取字段注释
+                            comment = col.get('Comment', '')
+                            comment_info = f" // {comment}" if comment else ""
+                            schema_info.append(f"    - {field_name} ({field_type}){comment_info}")
 
             return "\n".join(schema_info) if schema_info else "未找到数据库表信息"
 
@@ -123,34 +136,49 @@ class StarrocksConnection:
 
     def get_table_schema(self, database: str, table: str) -> str:
         """
-        获取指定表的schema信息
+        获取指定表的schema信息，包含表注释和字段注释
 
         Args:
             database: 数据库名称
             table: 表名称
 
         Returns:
-            表结构的详细描述
+            表结构的详细描述，包含中文注释
         """
         try:
             schema_info = []
             schema_info.append(f"数据库: {database}")
             schema_info.append(f"表名: {table}")
             schema_info.append(f"完整表名: {database}.{table}")
+
+            # 获取表注释
+            with self.connection.cursor() as cursor:
+                cursor.execute(f"SHOW TABLE STATUS FROM {database} LIKE '{table}'")
+                table_status = cursor.fetchone()
+                if table_status and table_status.get('Comment'):
+                    schema_info.append(f"表说明: {table_status['Comment']}")
+
             schema_info.append("\n字段信息:")
 
-            # 获取表结构
+            # 获取字段详细信息（包含注释）
             with self.connection.cursor() as cursor:
-                cursor.execute(f"DESC {database}.{table}")
+                # 使用 SHOW FULL COLUMNS 获取完整的字段信息，包括注释
+                cursor.execute(f"SHOW FULL COLUMNS FROM {database}.{table}")
                 columns = cursor.fetchall()
 
                 for col in columns:
+                    field_name = col['Field']
+                    field_type = col['Type']
                     null_info = "允许NULL" if col['Null'] == 'YES' else "不允许NULL"
                     key_info = f", 键类型: {col['Key']}" if col['Key'] else ""
                     default_info = f", 默认值: {col['Default']}" if col['Default'] else ""
 
+                    # 获取字段注释（中文说明）
+                    comment = col.get('Comment', '')
+                    comment_info = f" // {comment}" if comment else ""
+
                     schema_info.append(
-                        f"  - {col['Field']}: {col['Type']} ({null_info}{key_info}{default_info})"
+                        f"  - {field_name}: {field_type} ({null_info}{key_info}{default_info}){comment_info}"
                     )
 
             return "\n".join(schema_info)
@@ -240,6 +268,9 @@ class ChatBIAnalyzer:
 注意事项：
 - 上述schema信息已经包含了完整的表名（数据库名.表名）
 - 请在SQL中使用这个完整的表名
+- **重点关注字段后面的注释（//后面的中文说明）**，这是字段的中文含义
+- 根据用户的中文查询需求，通过注释信息找到对应的英文字段名
+- 例如：用户问"查询销售额"，如果看到字段 `sales_amount (decimal) // 销售金额`，则应该使用 `sales_amount` 字段
 - 仔细查看字段类型，确保查询条件的数据类型匹配
 - 对于时间字段，注意使用正确的日期函数
 
