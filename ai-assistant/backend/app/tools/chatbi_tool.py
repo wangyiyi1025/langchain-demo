@@ -404,7 +404,7 @@ class ChatBIAnalyzer:
         current_date_format = current_date.strftime("%Y年%m月%d日")
         current_year = current_date.year
         current_month = current_date.month
-        current_day = current_date.day_of_year
+        current_day = current_date.timetuple().tm_yday
         prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个专业的SQL专家。根据用户的自然语言问题和表结构信息,生成对应的SQL查询语句。
 
@@ -459,6 +459,7 @@ class ChatBIAnalyzer:
         # 渲染prompt并记录
         formatted_messages = prompt.format_messages(question=question, 
                                                     schema_info=schema_info, 
+                                                    current_day=current_day,
                                                     current_month=current_month, 
                                                     current_year=current_year, 
                                                     current_date_format=current_date_format,
@@ -471,6 +472,7 @@ class ChatBIAnalyzer:
         response = chain.invoke({
             "question": question,
             "schema_info": schema_info,
+            "current_day": current_day,
             "current_month": current_month,
             "current_year": current_year,
             "current_date_format": current_date_format,

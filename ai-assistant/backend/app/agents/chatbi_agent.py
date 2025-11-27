@@ -28,7 +28,7 @@ class ChatBIAgent(BaseAgent):
 
         # 初始化LLM
         self.llm = ChatTongyi(
-            model=os.getenv("QWEN_MODEL", "qwen-plus"),
+            model=os.getenv("QWEN_MODEL", "qwen3-max"),
             temperature=float(os.getenv("QWEN_TEMPERATURE", "0.3")),  # 数据分析需要更精确
             max_tokens=int(os.getenv("QWEN_MAX_TOKENS", "2000")),
             dashscope_api_key=os.getenv("DASHSCOPE_API_KEY")
@@ -90,7 +90,7 @@ class ChatBIAgent(BaseAgent):
   - database: 数据库名称（可选，不提供则返回所有数据库）
 
 ## 时间对比分析概念：
-
+### 重要：不要修改同期、同步、环比、同期同比、同期环比等术语的名称，这些是行业标准术语，必须严格使用。
 ### 1. 同比（Year-over-Year, YoY）
 - **定义**: 与去年同一时期相比的变化情况
 - **识别关键词**: "同比"、"去年同期"、"上年同期"、"与去年相比"
