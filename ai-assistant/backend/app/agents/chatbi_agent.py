@@ -235,7 +235,7 @@ class ChatBIAgent(BaseAgent):
         # 格式化对话历史
         formatted_history = []
         if chat_history:
-            formatted_history = self.format_chat_history(chat_history[-6:])  # 只保留最近6条
+            formatted_history = self.format_chat_history(chat_history[-2:])  # 只保留最近2条
 
         try:
             result = self.agent_executor.invoke({
@@ -279,7 +279,7 @@ class ChatBIAgent(BaseAgent):
         # 格式化对话历史
         formatted_history = []
         if chat_history:
-            formatted_history = self.format_chat_history(chat_history[-6:])
+            formatted_history = self.format_chat_history(chat_history[-2:])
 
         try:
             result = self.agent_executor.invoke({
