@@ -121,6 +121,43 @@ class StarrocksConnection:
         except Exception as e:
             return f"获取schema失败: {str(e)}"
 
+    def get_table_schema(self, database: str, table: str) -> str:
+        """
+        获取指定表的schema信息
+
+        Args:
+            database: 数据库名称
+            table: 表名称
+
+        Returns:
+            表结构的详细描述
+        """
+        try:
+            schema_info = []
+            schema_info.append(f"数据库: {database}")
+            schema_info.append(f"表名: {table}")
+            schema_info.append(f"完整表名: {database}.{table}")
+            schema_info.append("\n字段信息:")
+
+            # 获取表结构
+            with self.connection.cursor() as cursor:
+                cursor.execute(f"DESC {database}.{table}")
+                columns = cursor.fetchall()
+
+                for col in columns:
+                    null_info = "允许NULL" if col['Null'] == 'YES' else "不允许NULL"
+                    key_info = f", 键类型: {col['Key']}" if col['Key'] else ""
+                    default_info = f", 默认值: {col['Default']}" if col['Default'] else ""
+
+                    schema_info.append(
+                        f"  - {col['Field']}: {col['Type']} ({null_info}{key_info}{default_info})"
+                    )
+
+            return "\n".join(schema_info)
+
+        except Exception as e:
+            return f"获取表 {database}.{table} 的schema失败: {str(e)}"
+
 
 class ChatBIAnalyzer:
     """ChatBI 分析器，使用LLM进行数据分析"""
@@ -143,19 +180,26 @@ class ChatBIAnalyzer:
         logger.info(f"Schema信息:\n{schema_info}")
 
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """你是一个专业的SQL专家。根据用户的自然语言问题和数据库schema，生成对应的SQL查询语句。
+            ("system", """你是一个专业的SQL专家。根据用户的自然语言问题和表结构信息，生成对应的SQL查询语句。
 
-要求：
-1. 只返回SQL语句，不要有任何其他说明文字
-2. SQL语句要完整且可执行
+重要要求：
+1. **只返回SQL语句，不要有任何其他说明文字**
+2. **必须使用完整的表名**（格式：数据库名.表名，例如：sales_db.orders）
 3. 使用标准的MySQL语法（Starrocks兼容MySQL协议）
 4. 如果需要限制返回行数，默认使用 LIMIT 100
 5. 确保SQL语句的安全性，防止SQL注入
+6. 优先使用schema中明确提供的字段名，不要臆测
 
-数据库Schema信息：
+表结构信息：
 {schema_info}
 
-请根据以上schema信息生成SQL查询。
+注意事项：
+- 上述schema信息已经包含了完整的表名（数据库名.表名）
+- 请在SQL中使用这个完整的表名
+- 仔细查看字段类型，确保查询条件的数据类型匹配
+- 对于时间字段，注意使用正确的日期函数
+
+请根据以上表结构信息生成SQL查询。
 """),
             ("human", "{question}")
         ])
@@ -338,13 +382,14 @@ class ChatBIAnalyzer:
 
         return config
 
-    def analyze(self, question: str, database: Optional[str] = None) -> str:
+    def analyze(self, question: str, database: Optional[str] = None, table: Optional[str] = None) -> str:
         """
         分析自然语言问题，生成SQL并返回结果和可视化配置
 
         Args:
             question: 用户的自然语言问题
             database: 指定的数据库名称（可选）
+            table: 指定的表名称（可选，强烈推荐提供）
 
         Returns:
             分析结果的JSON字符串
@@ -352,7 +397,8 @@ class ChatBIAnalyzer:
         logger.info("\n" + "="*100)
         logger.info("【ChatBI 分析流程】开始")
         logger.info(f"用户问题: {question}")
-        logger.info(f"指定数据库: {database if database else '未指定（查询所有数据库）'}")
+        logger.info(f"指定数据库: {database if database else '未指定'}")
+        logger.info(f"指定表: {table if table else '未指定'}")
         logger.info("="*100)
 
         try:
@@ -362,11 +408,23 @@ class ChatBIAnalyzer:
             logger.info("✓ 数据库连接成功")
 
             # 获取schema信息
-            logger.info("步骤 2/5: 获取数据库Schema信息...")
-            schema_info = self.db.get_database_schema(database)
+            logger.info("步骤 2/5: 获取Schema信息...")
+
+            # 如果指定了表，只获取该表的schema（推荐方式）
+            if database and table:
+                logger.info(f"获取指定表的Schema: {database}.{table}")
+                schema_info = self.db.get_table_schema(database, table)
+            # 否则获取整个数据库或所有数据库的schema
+            else:
+                if database:
+                    logger.warning(f"仅指定数据库 {database}，未指定表名，将获取数据库所有表的Schema（可能影响性能）")
+                else:
+                    logger.warning("未指定数据库和表，将获取所有数据库的Schema（可能影响性能）")
+                schema_info = self.db.get_database_schema(database)
+
             logger.debug(f"Schema信息:\n{schema_info[:500]}...")
 
-            if "未找到" in schema_info or "失败" in schema_info:
+            if "失败" in schema_info:
                 logger.error(f"获取Schema失败: {schema_info}")
                 return json.dumps({
                     "success": False,
@@ -444,24 +502,31 @@ def get_analyzer():
 
 
 @tool
-def chatbi_query(question: str, database: str = None) -> str:
+def chatbi_query(question: str, database: str = None, table: str = None) -> str:
     """
     使用自然语言查询 Starrocks 数据库并进行数据分析和可视化
 
     Args:
         question: 自然语言问题，例如 "查询销售额前10的产品" 或 "分析最近30天的用户增长趋势"
-        database: 指定要查询的数据库名称（可选）
+        database: 指定要查询的数据库名称（推荐）
+        table: 指定要查询的表名称（强烈推荐，可显著提高查询准确性和速度）
 
     Returns:
         包含查询结果、SQL语句和可视化建议的JSON字符串
 
     Examples:
-        - "查询用户表中的总记录数"
-        - "显示最近一周的订单金额趋势"
-        - "分析各地区的销售额占比"
+        - chatbi_query("查询用户总数", database="user_db", table="users")
+        - chatbi_query("显示最近一周的订单金额趋势", database="sales_db", table="orders")
+        - chatbi_query("分析各地区的销售额占比", database="sales_db", table="sales_data")
+
+    注意：
+        - 强烈建议同时提供 database 和 table 参数，这样可以：
+          1. 减少 LLM 处理的数据量，提高响应速度
+          2. 提高 SQL 生成的准确性
+          3. 避免在多表环境中产生歧义
     """
     analyzer = get_analyzer()
-    return analyzer.analyze(question, database)
+    return analyzer.analyze(question, database, table)
 
 
 @tool
