@@ -154,7 +154,7 @@ CROSS JOIN (
 
 ### 场景3: 年度同期同比(含\"同期\"关键词) - **重点!!!**
 **用户问题**: \"2025年XX同期同比增长最多\"
-**时间范围**: 2025-01-01至2025-11-27 vs 2024-01-01至2024-11-27(相对当前时间范围)
+**时间范围**: 2025-01-01至2025-11-27 vs 2024-01-01至2024-11-27(相对当前时间范围，提问时不明确也要默认使用当前时间范围)
 **关键点**: 必须使用精确日期范围,不能使用YEAR()函数
 **SQL结构**:
 ```sql
@@ -185,7 +185,7 @@ LIMIT 5;
 
 ### 场景4: 月度同期同比
 **用户问题**: \"本月XX同期同比\"
-**时间范围**: 2025-11-01至2025-11-27 vs 2024-11-01至2024-11-27
+**时间范围**: 2025-11-01至2025-11-27 vs 2024-11-01至2024-11-27(相对当前时间范围，提问时不明确也要默认使用当前时间范围)
 ```sql
 SELECT 
   t1.metric_current,
@@ -202,7 +202,9 @@ CROSS JOIN (
   WHERE date_field >= '2024-11-01' AND date_field <= '2024-11-27'
 ) t2;
 ```
-### 场景5: 月度环比(如\"本月销售额环比上月\")
+### 场景5: 月度环比
+**用户问题**: \"本月XX环比上月\"
+**时间范围**: 2025年11月 vs 2025年10月(相对当前时间范围，提问时不明确也要默认使用当前时间范围)
 ```sql
 SELECT 
   t1.sales_current_month,
@@ -217,6 +219,25 @@ CROSS JOIN (
   SELECT SUM(sales_amount) as sales_last_month
   FROM table_name
   WHERE YEAR(date_field) = 2025 AND MONTH(date_field) = 10
+) t2;
+
+### 场景5: 月度同期环比
+**用户问题**: \"本月销售额环比上月同期\"
+**时间范围**: 2025-11-01至2025-11-27 vs 2025-10-01至2025-10-27(相对当前时间范围，提问时不明确也要默认使用当前时间范围)
+```sql
+SELECT 
+  t1.sales_current_month,
+  t2.sales_last_month,
+  (t1.sales_current_month - t2.sales_last_month) / t2.sales_last_month * 100 as mom_rate
+FROM (
+  SELECT SUM(sales_amount) as sales_current_month
+  FROM table_name
+  WHERE date_field >= '2025-11-01' AND date_field <= '2025-11-27'
+) t1
+CROSS JOIN (
+  SELECT SUM(sales_amount) as sales_last_month
+  FROM table_name
+  WHERE date_field >= '2025-10-01' AND date_field <= '2025-10-27'
 ) t2;
 ```
 
@@ -395,7 +416,6 @@ class ChatBIAnalyzer:
                 max_retries=settings.QWEN_MAX_RETRIES,
                 api_key=settings.DASHSCOPE_API_KEY,
                 base_url=settings.DASHSCOPE_BASE_URL)
-            )
         except Exception as e:
             logger.error(f"【错误】ChatOpenAI模型初始化失败: {str(e)}")
             raise
@@ -413,12 +433,6 @@ class ChatBIAnalyzer:
         current_day = current_date.timetuple().tm_yday
         prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个专业的SQL专家。根据用户的自然语言问题和表结构信息,生成对应的SQL查询语句。
-
-**当前时间上下文**: 
-- 当前完整日期: {current_date_format}
-- 当前年份: {current_year}年
-- 当前月份: {current_month}月
-- 当前日期在年内: 第{current_day}天 ({current_year}-01-01 到 {current_date_format})
 
 重要要求:
 1. **只返回SQL语句,不要有任何其他说明文字**
