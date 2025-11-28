@@ -1,6 +1,20 @@
 """
-ChatBI 数据分析工具
-支持自然语言查询 Starrocks 数据库并生成可视化图表
+ChatBI 数据分析工具 - DEPRECATED 向后兼容版本
+
+⚠️ 警告：此文件已被弃用，请使用新的原子工具版本
+新版本文件：chatbi_tools_atomic.py
+
+此文件保留用于向后兼容，建议尽快迁移到新架构：
+- 旧架构：chatbi_query 是一个复合工具（包含多个LLM调用）
+- 新架构：职责分离 + 原子工具 + 上下文传递
+  - get_schema_info: 获取表结构
+  - nl_to_sql: 自然语言转SQL（唯一业务理解点）
+  - execute_sql: 执行SQL
+  - analyze_data: 分析数据
+  - suggest_chart: 推荐图表
+  - generate_chart_config: 生成配置
+
+迁移指南：请参考 chatbi_agent.py 中的新实现
 """
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
@@ -735,7 +749,17 @@ def get_analyzer():
 @tool
 def chatbi_query(question: str, database: str = None, table: str = None) -> str:
     """
-    使用自然语言查询 Starrocks 数据库并进行数据分析和可视化
+    ⚠️ DEPRECATED - 使用自然语言查询 Starrocks 数据库并进行数据分析和可视化
+
+    ⚠️ 警告：此工具已被弃用，请使用新的原子工具组合：
+    1. get_schema_info(database, table) - 获取表结构
+    2. nl_to_sql(question, schema_info, context) - 生成SQL
+    3. execute_sql(sql, database) - 执行查询
+    4. analyze_data(data, question) - 分析数据
+    5. suggest_chart(data, question, analysis) - 推荐图表
+    6. generate_chart_config(data, chart_suggestion) - 生成配置
+
+    此工具仅保留用于向后兼容。
 
     Args:
         question: 自然语言问题，例如 "查询销售额前10的产品" 或 "分析最近30天的用户增长趋势"
@@ -756,6 +780,7 @@ def chatbi_query(question: str, database: str = None, table: str = None) -> str:
           2. 提高 SQL 生成的准确性
           3. 避免在多表环境中产生歧义
     """
+    logger.warning("[DEPRECATED] chatbi_query工具已被弃用，建议使用原子工具组合。详见chatbi_tools_atomic.py")
     analyzer = get_analyzer()
     return analyzer.analyze(question, database, table)
 
@@ -763,7 +788,12 @@ def chatbi_query(question: str, database: str = None, table: str = None) -> str:
 @tool
 def chatbi_get_schema(database: str = None) -> str:
     """
-    获取 Starrocks 数据库的表结构信息
+    ⚠️ DEPRECATED - 获取 Starrocks 数据库的表结构信息
+
+    ⚠️ 警告：此工具已被弃用，请使用新的 get_schema_info 工具
+    新工具提供更结构化的JSON输出，便于工具间传递。
+
+    此工具仅保留用于向后兼容。
 
     Args:
         database: 指定要查询的数据库名称（可选），不指定则返回所有数据库信息
@@ -771,6 +801,7 @@ def chatbi_get_schema(database: str = None) -> str:
     Returns:
         数据库schema信息的字符串描述
     """
+    logger.warning("[DEPRECATED] chatbi_get_schema工具已被弃用，建议使用get_schema_info。详见chatbi_tools_atomic.py")
     try:
         db = StarrocksConnection()
         db.connect()
