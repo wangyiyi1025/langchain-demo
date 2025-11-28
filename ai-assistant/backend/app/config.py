@@ -2,8 +2,12 @@
 配置文件
 """
 import os
+import logging
 from typing import Optional
 from pydantic_settings import BaseSettings
+
+# 配置日志
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -25,11 +29,13 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
-    # 千问配置
+    # 千问配置（使用OpenAI兼容模式）
     DASHSCOPE_API_KEY: str
-    QWEN_MODEL: str = "qwen3-max"
+    DASHSCOPE_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    QWEN_MODEL: str = "qwen-plus"
     QWEN_TEMPERATURE: float = 0.7
     QWEN_MAX_TOKENS: int = 2000
+    QWEN_MAX_RETRIES: int = 2
 
     # Agent配置
     AGENT_MAX_ITERATIONS: int = 5
@@ -65,6 +71,63 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = True
 
+    def validate_required_config(self):
+        """验证必需的配置项"""
+        errors = []
+
+        # 验证 DashScope API Key
+        if not self.DASHSCOPE_API_KEY or self.DASHSCOPE_API_KEY == "your-dashscope-api-key-here":
+            errors.append("DASHSCOPE_API_KEY 未配置或使用了默认值，请在 .env 文件中设置有效的 API Key")
+
+        # 验证 Base URL
+        if not self.DASHSCOPE_BASE_URL:
+            errors.append("DASHSCOPE_BASE_URL 未配置")
+
+        if errors:
+            error_msg = "\n".join([f"  - {err}" for err in errors])
+            raise ValueError(f"\n配置验证失败:\n{error_msg}\n")
+
+    def mask_sensitive_value(self, value: str, show_chars: int = 4) -> str:
+        """脱敏处理敏感信息"""
+        if not value or len(value) <= show_chars:
+            return "***"
+        return value[:show_chars] + "*" * (len(value) - show_chars)
+
+    def print_config(self):
+        """打印配置信息（敏感信息脱敏）"""
+        logger.info("=" * 60)
+        logger.info("应用配置信息")
+        logger.info("=" * 60)
+        logger.info(f"应用名称: {self.APP_NAME}")
+        logger.info(f"应用版本: {self.APP_VERSION}")
+        logger.info(f"调试模式: {self.DEBUG}")
+        logger.info(f"API前缀: {self.API_PREFIX}")
+        logger.info("-" * 60)
+        logger.info("千问模型配置:")
+        logger.info(f"  API Key: {self.mask_sensitive_value(self.DASHSCOPE_API_KEY)}")
+        logger.info(f"  Base URL: {self.DASHSCOPE_BASE_URL}")
+        logger.info(f"  模型: {self.QWEN_MODEL}")
+        logger.info(f"  温度: {self.QWEN_TEMPERATURE}")
+        logger.info(f"  最大Token: {self.QWEN_MAX_TOKENS}")
+        logger.info(f"  最大重试: {self.QWEN_MAX_RETRIES}")
+        logger.info("-" * 60)
+        logger.info("Agent配置:")
+        logger.info(f"  最大迭代次数: {self.AGENT_MAX_ITERATIONS}")
+        logger.info(f"  详细日志: {self.AGENT_VERBOSE}")
+        logger.info("-" * 60)
+        logger.info("数据库配置:")
+        logger.info(f"  MySQL: {self.MYSQL_USER}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}")
+        logger.info(f"  StarRocks: {self.STARROCKS_USER}@{self.STARROCKS_HOST}:{self.STARROCKS_PORT}")
+        logger.info("=" * 60)
+
 
 # 创建全局配置实例
 settings = Settings()
+
+# 验证配置
+try:
+    settings.validate_required_config()
+    settings.print_config()
+except ValueError as e:
+    logger.error(str(e))
+    raise
