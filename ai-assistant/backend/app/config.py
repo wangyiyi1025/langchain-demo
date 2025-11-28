@@ -137,10 +137,4 @@ class Settings(BaseSettings):
 # 创建全局配置实例
 settings = Settings()
 
-# 验证配置
-try:
-    settings.validate_required_config()
-    settings.print_config()
-except ValueError as e:
-    logger.error(str(e))
-    raise
+# 注意：配置验证和打印将在日志系统初始化后进行（见 logger.py 的 setup_logging()）
