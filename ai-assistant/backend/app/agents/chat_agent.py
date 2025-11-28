@@ -32,7 +32,7 @@ class ChatAgent(BaseAgent):
             max_tokens=settings.QWEN_MAX_TOKENS,
             max_retries=settings.QWEN_MAX_RETRIES,
             api_key=settings.DASHSCOPE_API_KEY,
-            base_url=settings.DASHSCOPE_BASE_URL)
+            base_url=settings.DASHSCOPE_BASE_URL
         )
 
         # 定义通用工具（移除了ChatBI工具）
