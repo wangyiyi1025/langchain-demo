@@ -29,13 +29,21 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
-    # 千问配置（使用OpenAI兼容模式）
-    DASHSCOPE_API_KEY: str
-    DASHSCOPE_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    QWEN_MODEL: str = "qwen-plus"
-    QWEN_TEMPERATURE: float = 0.7
-    QWEN_MAX_TOKENS: int = 2000
-    QWEN_MAX_RETRIES: int = 2
+    # LLM配置（OpenAI兼容接口）
+    # 支持任何兼容OpenAI API的大模型服务：
+    # - OpenAI官方 (https://api.openai.com/v1)
+    # - 本地Ollama (http://localhost:11434/v1)
+    # - vLLM (http://localhost:8000/v1)
+    # - LM Studio (http://localhost:1234/v1)
+    # - 阿里千问 (https://dashscope.aliyuncs.com/compatible-mode/v1)
+    # - 其他兼容服务...
+    OPENAI_API_KEY: str = "sk-dummy-key"  # 本地模型可能不需要真实的key
+    OPENAI_BASE_URL: str = "http://localhost:11434/v1"  # 默认Ollama地址
+    LLM_MODEL: str = "qwen2.5:latest"  # 模型名称
+    LLM_TEMPERATURE: float = 0.7  # 温度参数，控制输出随机性
+    LLM_MAX_TOKENS: int = 2000  # 最大生成token数
+    LLM_MAX_RETRIES: int = 2  # 失败重试次数
+    LLM_PROVIDER: str = "ollama"  # 提供商标识，用于日志和调试
 
     # Agent配置
     AGENT_MAX_ITERATIONS: int = 5
@@ -75,13 +83,17 @@ class Settings(BaseSettings):
         """验证必需的配置项"""
         errors = []
 
-        # 验证 DashScope API Key
-        if not self.DASHSCOPE_API_KEY or self.DASHSCOPE_API_KEY == "your-dashscope-api-key-here":
-            errors.append("DASHSCOPE_API_KEY 未配置或使用了默认值，请在 .env 文件中设置有效的 API Key")
+        # 验证 OpenAI API Key（本地模型可能不需要真实的key，所以只做基本检查）
+        if not self.OPENAI_API_KEY:
+            errors.append("OPENAI_API_KEY 未配置，请在 .env 文件中设置（本地模型可使用任意值如 'sk-dummy-key'）")
 
         # 验证 Base URL
-        if not self.DASHSCOPE_BASE_URL:
-            errors.append("DASHSCOPE_BASE_URL 未配置")
+        if not self.OPENAI_BASE_URL:
+            errors.append("OPENAI_BASE_URL 未配置")
+
+        # 验证模型名称
+        if not self.LLM_MODEL:
+            errors.append("LLM_MODEL 未配置，请指定要使用的模型名称")
 
         if errors:
             error_msg = "\n".join([f"  - {err}" for err in errors])
@@ -103,13 +115,14 @@ class Settings(BaseSettings):
         logger.info(f"调试模式: {self.DEBUG}")
         logger.info(f"API前缀: {self.API_PREFIX}")
         logger.info("-" * 60)
-        logger.info("千问模型配置:")
-        logger.info(f"  API Key: {self.mask_sensitive_value(self.DASHSCOPE_API_KEY)}")
-        logger.info(f"  Base URL: {self.DASHSCOPE_BASE_URL}")
-        logger.info(f"  模型: {self.QWEN_MODEL}")
-        logger.info(f"  温度: {self.QWEN_TEMPERATURE}")
-        logger.info(f"  最大Token: {self.QWEN_MAX_TOKENS}")
-        logger.info(f"  最大重试: {self.QWEN_MAX_RETRIES}")
+        logger.info("大模型配置 (OpenAI兼容接口):")
+        logger.info(f"  提供商: {self.LLM_PROVIDER}")
+        logger.info(f"  API Key: {self.mask_sensitive_value(self.OPENAI_API_KEY)}")
+        logger.info(f"  Base URL: {self.OPENAI_BASE_URL}")
+        logger.info(f"  模型: {self.LLM_MODEL}")
+        logger.info(f"  温度: {self.LLM_TEMPERATURE}")
+        logger.info(f"  最大Token: {self.LLM_MAX_TOKENS}")
+        logger.info(f"  最大重试: {self.LLM_MAX_RETRIES}")
         logger.info("-" * 60)
         logger.info("Agent配置:")
         logger.info(f"  最大迭代次数: {self.AGENT_MAX_ITERATIONS}")
