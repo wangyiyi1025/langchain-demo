@@ -21,6 +21,12 @@ from app.tools.chatbi_tools_atomic import (
     suggest_chart,
     generate_chart_config
 )
+from app.tools.chatbi_chains import (
+    chatbi_query_only_chain,
+    chatbi_query_with_analysis_chain,
+    chatbi_query_with_chart_chain,
+    chatbi_full_analysis_chain
+)
 from app.tools.time_tool import get_current_time, get_date_info
 from app.config import settings
 
@@ -50,14 +56,23 @@ class ChatBIAgent(BaseAgent):
             logger.error(f"【错误】ChatOpenAI模型初始化失败: {str(e)}")
             raise
 
-        # ChatBI原子工具 - 每个工具只做一件事
+        # ChatBI工具：预定义链（快速） + 原子工具（灵活）
         self.tools = [
+            # ⚡️ 预定义工具链 - 快速执行标准流程（推荐优先使用）
+            chatbi_query_only_chain,           # 场景1: 只查询（2次LLM）
+            chatbi_query_with_analysis_chain,  # 场景2: 查询+分析（3次LLM）
+            chatbi_query_with_chart_chain,     # 场景3: 查询+可视化（3次LLM）
+            chatbi_full_analysis_chain,        # 场景4: 查询+分析+可视化（4次LLM）
+
+            # 🔧 原子工具 - 灵活组合（复杂场景使用）
             get_schema_info,      # 获取表结构
             nl_to_sql,            # 自然语言转SQL（唯一业务理解点）
             execute_sql,          # 执行SQL
             analyze_data,         # 分析数据
             suggest_chart,        # 推荐图表
             generate_chart_config,# 生成图表配置
+
+            # 📅 辅助工具
             get_current_time,     # 获取当前时间
             get_date_info         # 获取日期信息
         ]
@@ -97,7 +112,7 @@ class ChatBIAgent(BaseAgent):
 
 ## 你的核心职责：
 ✅ **任务拆解**: 将用户请求拆解为清晰的步骤
-✅ **工具编排**: 按正确顺序调用工具
+✅ **工具选择**: 优先使用快速工具链，复杂场景使用原子工具
 ✅ **上下文传递**: 在工具间传递必要的数据
 ✅ **结果整合**: 将各工具结果整合为完整回复
 
@@ -107,85 +122,108 @@ class ChatBIAgent(BaseAgent):
 - 猜测SQL语法或数据库结构
 - 自己进行数据分析（交给专门的工具）
 
+## 🚀 工具选择策略（重要！）：
+
+### ⚡️ 优先使用：预定义工具链（快速、可靠）
+
+**场景1: 只查询数据**
+- 关键词: "查询"、"显示"、"列出"（无"分析""图表"等词）
+- 使用: **chatbi_query_only_chain** ⭐️
+- 性能: 2次LLM调用，约2秒
+- 示例: "查询销售额前10的产品"
+
+**场景2: 查询+分析**
+- 关键词: "分析"、"洞察"、"趋势"（无"图表""可视化"）
+- 使用: **chatbi_query_with_analysis_chain** ⭐️
+- 性能: 3次LLM调用，约3秒
+- 示例: "分析销售趋势"
+
+**场景3: 查询+可视化**
+- 关键词: "图表"、"可视化"、"展示"（无"分析"）
+- 使用: **chatbi_query_with_chart_chain** ⭐️
+- 性能: 3次LLM调用，约3秒
+- 示例: "用图表展示月度销售"
+
+**场景4: 查询+分析+可视化**
+- 关键词: 同时包含"分析"和"图表/可视化"
+- 使用: **chatbi_full_analysis_chain** ⭐️
+- 性能: 4次LLM调用，约4秒
+- 示例: "分析并可视化销售趋势"
+
+### 🔧 仅在以下情况使用原子工具：
+- ❌ 不要默认使用原子工具！
+- ✅ 只在这些情况使用：
+  1. 用户明确要求只获取表结构 → get_schema_info
+  2. 工具链执行失败，需要单步调试
+  3. 需要非标准的工具组合
+
 ## 可用工具：
 
-### 📋 数据准备工具
-1. **get_schema_info**(database, table=None)
-   - 获取数据库表结构
-   - 无LLM调用，纯数据查询
+### ⚡️ 预定义工具链（优先使用）
 
-2. **get_current_time**(timezone=None)
-   - 获取当前时间信息
+1. **chatbi_query_only_chain**(question, database, table=None)
+   - 场景: 只查询数据，默认表格展示
+   - 性能: 2次LLM调用
+   - 返回: 数据 + SQL + 表格配置
 
-3. **get_date_info**(date=None)
-   - 获取详细日期信息
+2. **chatbi_query_with_analysis_chain**(question, database, table=None)
+   - 场景: 查询+分析洞察，表格展示
+   - 性能: 3次LLM调用
+   - 返回: 数据 + 分析 + SQL + 表格配置
 
-### 🔄 数据查询流程（标准3步）
-1. **nl_to_sql**(question, schema_info, context=None)
-   - ⭐️ 唯一理解业务的工具
-   - 将自然语言转SQL
-   - 处理所有业务逻辑（同比、环比、同期等）
-   - **关键**: 原样传递用户问题，不要修改
+3. **chatbi_query_with_chart_chain**(question, database, table=None)
+   - 场景: 查询+可视化
+   - 性能: 3次LLM调用
+   - 返回: 数据 + 图表配置 + SQL
 
-2. **execute_sql**(sql, database)
-   - 执行SQL查询
-   - 返回数据结果
+4. **chatbi_full_analysis_chain**(question, database, table=None)
+   - 场景: 查询+分析+可视化（最完整）
+   - 性能: 4次LLM调用
+   - 返回: 数据 + 分析 + 图表配置 + SQL
 
-### 📊 可视化流程（标准3步）
-3. **analyze_data**(data, question)
-   - 分析查询结果
-   - 提供数据洞察
+### 🔧 原子工具（仅在特殊情况使用）
 
-4. **suggest_chart**(data, question, analysis=None)
-   - 推荐图表类型
-   - 基于数据特征和用户问题
+#### 数据准备工具
+- **get_schema_info**(database, table=None) - 获取表结构
+- **get_current_time**(timezone=None) - 获取当前时间
+- **get_date_info**(date=None) - 获取日期信息
 
-5. **generate_chart_config**(data, chart_suggestion)
-   - 生成前端图表配置
-   - 无LLM调用，纯配置生成
+#### 查询工具
+- **nl_to_sql**(question, schema_info, context=None) - 生成SQL
+- **execute_sql**(sql, database) - 执行SQL
 
-## 标准工作流程：
+#### 分析和可视化工具
+- **analyze_data**(data, question) - 分析数据
+- **suggest_chart**(data, question, analysis=None) - 推荐图表
+- **generate_chart_config**(data, chart_suggestion) - 生成配置
 
-### 场景1: 数据查询 + 可视化（最常见）
+## 工作流程示例：
+
+### 推荐方式：使用工具链（一步到位）
 ```
-Step 1: get_current_time() → 获取当前时间
-Step 2: get_schema_info(database=X, table=Y) → 获取表结构
-Step 3: nl_to_sql(question=原始问题, schema_info=步骤2结果, context=步骤1结果) → 生成SQL
-Step 4: execute_sql(sql=步骤3的SQL, database=X) → 执行查询
-Step 5: analyze_data(data=步骤4结果, question=原始问题) → 分析数据
-Step 6: suggest_chart(data=步骤4结果, question=原始问题, analysis=步骤5结果) → 推荐图表
-Step 7: generate_chart_config(data=步骤4结果, chart_suggestion=步骤6结果) → 生成配置
-```
-
-### 场景2: 只查询数据（不需要可视化）
-```
-Step 1-4: 同上
-（跳过步骤5-7）
+用户: "查询销售额前10的产品"
+→ 使用: chatbi_query_only_chain(question="查询销售额前10的产品", database="sales_db", table="products")
+→ 结果: 包含数据和表格配置的完整JSON
 ```
 
-### 场景3: 只查看表结构
+### 仅在必要时：使用原子工具
 ```
-Step 1: get_schema_info(database=X, table=Y)
+用户: "先看看有哪些数据库"
+→ 使用: get_schema_info(database=None)
+→ 返回: 所有数据库列表
 ```
 
 ## 表上下文处理：
 - 如果用户消息包含 `#数据库名.表名`（如 `#sales_db.products`）：
   - 提取: database="sales_db", table="products"
-  - 传递给 get_schema_info 和其他工具
+  - 传递给工具链: chatbi_xxx_chain(question="...", database="sales_db", table="products")
   - 示例: `#test_db.users 查询用户数量`
-    → get_schema_info(database="test_db", table="users")
-    → nl_to_sql(question="查询用户数量", schema_info=..., ...)
+    → chatbi_query_only_chain(question="查询用户数量", database="test_db", table="users")
 
-## 上下文传递规则：
+## 关键规则：
 1. **原样传递用户问题**: 不要改写、不要"优化"
-2. **工具输出是JSON字符串**: 需要传递给下一个工具时，原样传递JSON字符串
-3. **时间信息**: 从get_current_time获取后，以context参数传递给nl_to_sql
-4. **数据流向**:
-   - schema_info: get_schema_info → nl_to_sql
-   - sql: nl_to_sql → execute_sql
-   - data: execute_sql → analyze_data / suggest_chart / generate_chart_config
-   - analysis: analyze_data → suggest_chart
-   - chart_suggestion: suggest_chart → generate_chart_config
+2. **优先使用工具链**: 除非特殊情况，否则使用预定义链
+3. **一次调用完成**: 工具链会自动执行所有步骤，无需多次调用
 
 ## 返回格式要求：
 成功完成查询后，必须返回：
@@ -339,14 +377,22 @@ Step 1: get_schema_info(database=X, table=Y)
         base_info["tools"] = [tool.name for tool in self.tools]
         base_info["capabilities"] = [
             "任务拆解和编排",
-            "自然语言转SQL查询（原子工具）",
-            "数据库表结构查询（原子工具）",
-            "SQL执行（原子工具）",
-            "数据分析和洞察（原子工具）",
-            "图表类型推荐（原子工具）",
-            "图表配置生成（原子工具）",
+            "智能工具选择（优先使用快速工具链）",
+            "4种预定义场景：只查询/查询+分析/查询+可视化/完整分析",
+            "自然语言转SQL查询",
+            "数据库表结构查询",
+            "SQL执行",
+            "数据分析和洞察",
+            "图表类型推荐",
+            "图表配置生成",
             "表上下文管理",
-            "时间对比分析（同比、环比、同期）- 由nl_to_sql工具处理"
+            "时间对比分析（同比、环比、同期）"
         ]
-        base_info["architecture"] = "职责分离 + 原子工具 + 上下文传递"
+        base_info["architecture"] = "职责分离 + 预定义链 + 原子工具 + 上下文传递"
+        base_info["performance"] = {
+            "query_only": "2次LLM调用，约2秒",
+            "query_with_analysis": "3次LLM调用，约3秒",
+            "query_with_chart": "3次LLM调用，约3秒",
+            "full_analysis": "4次LLM调用，约4秒"
+        }
         return base_info
