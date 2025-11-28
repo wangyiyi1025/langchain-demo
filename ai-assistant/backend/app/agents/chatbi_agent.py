@@ -43,15 +43,28 @@ class ChatBIAgent(BaseAgent):
 
         # 初始化LLM（使用OpenAI兼容模式）
         try:
-            self.llm = ChatOpenAI(
-                model=settings.LLM_MODEL,
-                temperature=settings.LLM_TEMPERATURE,
-                max_tokens=settings.LLM_MAX_TOKENS,
-                max_retries=settings.LLM_MAX_RETRIES,
-                api_key=settings.OPENAI_API_KEY,
-                base_url=settings.OPENAI_BASE_URL
-            )
-            logger.info(f"ChatBI Agent LLM 初始化成功: provider={settings.LLM_PROVIDER}, model={settings.LLM_MODEL}, base_url={settings.OPENAI_BASE_URL}")
+            # 根据配置选择是否使用 Tool Call 适配器
+            if settings.USE_TOOL_CALL_ADAPTER:
+                from app.utils.tool_call_adapter import create_adapted_llm
+                self.llm = create_adapted_llm(
+                    model=settings.LLM_MODEL,
+                    temperature=settings.LLM_TEMPERATURE,
+                    max_tokens=settings.LLM_MAX_TOKENS,
+                    max_retries=settings.LLM_MAX_RETRIES,
+                    api_key=settings.OPENAI_API_KEY,
+                    base_url=settings.OPENAI_BASE_URL
+                )
+                logger.info(f"ChatBI Agent LLM 初始化成功（使用适配器）: provider={settings.LLM_PROVIDER}, model={settings.LLM_MODEL}, base_url={settings.OPENAI_BASE_URL}")
+            else:
+                self.llm = ChatOpenAI(
+                    model=settings.LLM_MODEL,
+                    temperature=settings.LLM_TEMPERATURE,
+                    max_tokens=settings.LLM_MAX_TOKENS,
+                    max_retries=settings.LLM_MAX_RETRIES,
+                    api_key=settings.OPENAI_API_KEY,
+                    base_url=settings.OPENAI_BASE_URL
+                )
+                logger.info(f"ChatBI Agent LLM 初始化成功: provider={settings.LLM_PROVIDER}, model={settings.LLM_MODEL}, base_url={settings.OPENAI_BASE_URL}")
         except Exception as e:
             logger.error(f"【错误】ChatOpenAI模型初始化失败: {str(e)}")
             raise

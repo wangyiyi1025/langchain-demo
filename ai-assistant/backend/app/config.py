@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     LLM_MAX_TOKENS: int = 2000  # 最大生成token数
     LLM_MAX_RETRIES: int = 2  # 失败重试次数
     LLM_PROVIDER: str = "ollama"  # 提供商标识，用于日志和调试
+    USE_TOOL_CALL_ADAPTER: bool = False  # 是否使用 Tool Call 适配器（临时方案）
 
     # Agent配置
     AGENT_MAX_ITERATIONS: int = 5
@@ -123,6 +124,7 @@ class Settings(BaseSettings):
         logger.info(f"  温度: {self.LLM_TEMPERATURE}")
         logger.info(f"  最大Token: {self.LLM_MAX_TOKENS}")
         logger.info(f"  最大重试: {self.LLM_MAX_RETRIES}")
+        logger.info(f"  Tool Call 适配器: {'启用 (临时方案)' if self.USE_TOOL_CALL_ADAPTER else '禁用'}")
         logger.info("-" * 60)
         logger.info("Agent配置:")
         logger.info(f"  最大迭代次数: {self.AGENT_MAX_ITERATIONS}")

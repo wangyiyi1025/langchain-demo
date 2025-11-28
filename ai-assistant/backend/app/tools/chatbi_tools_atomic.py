@@ -370,15 +370,28 @@ def get_llm():
     global _llm_instance
     if _llm_instance is None:
         try:
-            _llm_instance = ChatOpenAI(
-                model=settings.LLM_MODEL,
-                temperature=settings.LLM_TEMPERATURE,
-                max_tokens=settings.LLM_MAX_TOKENS,
-                max_retries=settings.LLM_MAX_RETRIES,
-                api_key=settings.OPENAI_API_KEY,
-                base_url=settings.OPENAI_BASE_URL
-            )
-            logger.info(f"LLM实例初始化成功: provider={settings.LLM_PROVIDER}, model={settings.LLM_MODEL}, base_url={settings.OPENAI_BASE_URL}")
+            # 根据配置选择是否使用 Tool Call 适配器
+            if settings.USE_TOOL_CALL_ADAPTER:
+                from app.utils.tool_call_adapter import create_adapted_llm
+                _llm_instance = create_adapted_llm(
+                    model=settings.LLM_MODEL,
+                    temperature=settings.LLM_TEMPERATURE,
+                    max_tokens=settings.LLM_MAX_TOKENS,
+                    max_retries=settings.LLM_MAX_RETRIES,
+                    api_key=settings.OPENAI_API_KEY,
+                    base_url=settings.OPENAI_BASE_URL
+                )
+                logger.info(f"LLM实例初始化成功（使用适配器）: provider={settings.LLM_PROVIDER}, model={settings.LLM_MODEL}, base_url={settings.OPENAI_BASE_URL}")
+            else:
+                _llm_instance = ChatOpenAI(
+                    model=settings.LLM_MODEL,
+                    temperature=settings.LLM_TEMPERATURE,
+                    max_tokens=settings.LLM_MAX_TOKENS,
+                    max_retries=settings.LLM_MAX_RETRIES,
+                    api_key=settings.OPENAI_API_KEY,
+                    base_url=settings.OPENAI_BASE_URL
+                )
+                logger.info(f"LLM实例初始化成功: provider={settings.LLM_PROVIDER}, model={settings.LLM_MODEL}, base_url={settings.OPENAI_BASE_URL}")
         except Exception as e:
             logger.error(f"LLM实例初始化失败: {str(e)}")
             raise
