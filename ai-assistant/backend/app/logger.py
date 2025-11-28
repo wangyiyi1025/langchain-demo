@@ -70,6 +70,14 @@ def setup_logging():
     logger.info(f"日志目录: {log_dir.absolute()}")
     logger.info("="*60)
 
+    # 验证并打印配置信息（此时日志系统已经初始化完成）
+    try:
+        settings.validate_required_config()
+        settings.print_config()
+    except ValueError as e:
+        logger.error(str(e))
+        raise
+
 
 def get_logger(name: str) -> logging.Logger:
     """
