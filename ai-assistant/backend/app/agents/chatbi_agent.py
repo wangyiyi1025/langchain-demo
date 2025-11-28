@@ -281,44 +281,46 @@ class ChatBIAgent(BaseAgent):
 
     def _get_react_prompt(self) -> str:
         """获取ReAct格式的提示词"""
-        return """Answer the following questions as best you can. You have access to the following tools:
+        return """你需要尽可能准确地回答用户问题。你可以使用以下工具：
 
 {tools}
 
-## 🚨 CRITICAL: Output Format Rules
+## 🚨 关键：输出格式规则
 
-You MUST follow this exact format. Do NOT use any other format like <think>, <tool_call>, or XML tags.
+你必须严格遵循以下格式。绝对不要使用 <think>、<tool_call> 或任何 XML 标签格式。
 
-Use this format:
+必须使用这种格式：
 
-Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action (MUST be valid JSON)
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
+Question: 用户输入的问题
+Thought: 思考应该做什么
+Action: 要使用的工具名称，必须是 [{tool_names}] 中的一个
+Action Input: 工具的输入参数（必须是有效的 JSON 格式）
+Observation: 工具返回的结果
+... (Thought/Action/Action Input/Observation 可以重复 N 次)
+Thought: 我现在知道最终答案了
+Final Answer: 对用户问题的最终回答
 
-## ⚠️ IMPORTANT Rules:
-1. **DO NOT** use tags like <think>, <tool_call>, or any XML-style tags
-2. **MUST** use exact keywords: "Thought:", "Action:", "Action Input:", "Final Answer:"
-3. **Action Input MUST be valid JSON**, for example: {{"question": "查询数据", "database": "chatbi_data", "table": "users"}}
-4. **Action MUST be one of the tool names** listed above
-5. After "Action Input:", the next line MUST be "Observation:" (provided by the system)
+## ⚠️ 重要规则：
+1. **绝对不要**使用 <think>、<tool_call> 或任何 XML 风格的标签
+2. **必须**使用精确的关键词："Thought:"、"Action:"、"Action Input:"、"Final Answer:"
+3. **Action Input 必须是有效的 JSON**，例如：{{"question": "查询数据", "database": "chatbi_data", "table": "users"}}
+4. **Action 必须是上面列出的工具名称之一**
+5. 在 "Action Input:" 之后，下一行必须是 "Observation:"（由系统提供）
+6. **不要**在 Thought 中包含 Action，必须分开写
+7. **每个关键词后面必须有冒号和空格**，例如 "Thought: "（而不是 "Thought:"）
 
-## 🎯 Tool Selection Strategy:
-- For simple query → use: chatbi_query_only_chain
-- For query + analysis → use: chatbi_query_with_analysis_chain
-- For query + visualization → use: chatbi_query_with_chart_chain
-- For query + analysis + visualization → use: chatbi_full_analysis_chain
+## 🎯 工具选择策略：
+- 只查询数据 → 使用：chatbi_query_only_chain
+- 查询+分析 → 使用：chatbi_query_with_analysis_chain
+- 查询+可视化 → 使用：chatbi_query_with_chart_chain
+- 查询+分析+可视化 → 使用：chatbi_full_analysis_chain
 
-## 📝 Table Context:
-If user message contains `#database.table` format (e.g., `#chatbi_data.salary_tracking`):
-- Extract: database="chatbi_data", table="salary_tracking"
-- Pass to tool: {{"question": "...", "database": "chatbi_data", "table": "salary_tracking"}}
+## 📝 表上下文处理：
+如果用户消息包含 `#数据库名.表名` 格式（例如 `#chatbi_data.salary_tracking`）：
+- 提取：database="chatbi_data", table="salary_tracking"
+- 传递给工具：{{"question": "...", "database": "chatbi_data", "table": "salary_tracking"}}
 
-## 📚 Example 1:
+## 📚 示例 1：
 
 Question: #chatbi_data.salary_tracking 查看2条样例数据
 Thought: 用户要查询 chatbi_data 数据库的 salary_tracking 表的样例数据，这是简单查询，应该使用 chatbi_query_only_chain
@@ -328,7 +330,7 @@ Observation: {{"success": true, "data": [...], "row_count": 2}}
 Thought: 我已经获得了数据，现在可以给用户最终答案
 Final Answer: 已成功查询到2条样例数据...
 
-## 📚 Example 2:
+## 📚 示例 2：
 
 Question: #chatbi_data.sales 分析本月销售趋势并生成图表
 Thought: 用户需要分析 + 可视化，应该使用 chatbi_full_analysis_chain
@@ -338,9 +340,20 @@ Observation: {{"success": true, "data": [...], "analysis": {{...}}, "chart_confi
 Thought: 我现在知道最终答案了
 Final Answer: 分析结果和图表配置如下...
 
-## ⚡ Start Now!
+## 📚 示例 3（错误示范 - 不要这样做）：
 
-Begin! Remember to ALWAYS use the exact format with "Thought:", "Action:", "Action Input:", "Observation:", "Final Answer:".
+❌ 错误：
+<think>用户要查询数据</think>
+<tool_call>{{"name": "chatbi_query_only_chain", "arguments": {{}}}}</tool_call>
+
+✅ 正确：
+Thought: 用户要查询数据
+Action: chatbi_query_only_chain
+Action Input: {{"question": "...", "database": "...", "table": "..."}}
+
+## ⚡ 现在开始！
+
+记住：必须严格使用 "Thought:"、"Action:"、"Action Input:"、"Observation:"、"Final Answer:" 这些关键词。
 
 Question: {input}
 Thought: {agent_scratchpad}"""
