@@ -198,16 +198,16 @@ Step 1: get_schema_info(database=X, table=Y)
 好的，我已经完成了数据查询和分析。以下是结果：
 
 \`\`\`json
-{
+{{
   "success": true,
   "question": "用户的原始问题",
   "sql": "SELECT ...",
   "row_count": 10,
   "data": [...],
-  "analysis": {...},
-  "chart_suggestion": {...},
-  "chart_config": {...}
-}
+  "analysis": {{...}},
+  "chart_suggestion": {{...}},
+  "chart_config": {{...}}
+}}
 \`\`\`
 ```
 
