@@ -260,24 +260,19 @@ class StarrocksConnection:
         except Exception as e:
             raise Exception(f"SQL执行失败: {str(e)}")
 
-    def get_table_schema(self, database: str, table: str) -> str:
-        """获取指定表的schema信息，包含表注释和字段注释"""
+    def get_table_schema(self, database: str, table: str) -> Dict:
+        """获取指定表的schema信息，包含表注释和字段注释，返回结构化数据"""
         try:
-            schema_info = []
-            schema_info.append(f"数据库: {database}")
-            schema_info.append(f"表名: {table}")
-            schema_info.append(f"完整表名: {database}.{table}")
-
             # 获取表注释
+            table_comment = ""
             with self.connection.cursor() as cursor:
                 cursor.execute(f"SHOW TABLE STATUS FROM {database} LIKE '{table}'")
                 table_status = cursor.fetchone()
                 if table_status and table_status.get('Comment'):
-                    schema_info.append(f"表说明: {table_status['Comment']}")
-
-            schema_info.append("\n字段信息:")
+                    table_comment = table_status['Comment']
 
             # 获取字段详细信息（包含注释）
+            columns_data = []
             with self.connection.cursor() as cursor:
                 cursor.execute(f"SHOW FULL COLUMNS FROM {database}.{table}")
                 columns = cursor.fetchall()
@@ -285,28 +280,33 @@ class StarrocksConnection:
                 for col in columns:
                     field_name = col['Field']
                     field_type = col['Type']
-                    null_info = "允许NULL" if col['Null'] == 'YES' else "不允许NULL"
-                    key_info = f", 键类型: {col['Key']}" if col['Key'] else ""
-                    default_info = f", 默认值: {col['Default']}" if col['Default'] else ""
-
-                    # 获取字段注释（中文说明）
+                    is_nullable = "是" if col['Null'] == 'YES' else "否"
+                    key_type = col['Key'] if col['Key'] else "-"
+                    default_value = str(col['Default']) if col['Default'] is not None else "-"
                     comment = col.get('Comment', '')
-                    comment_info = f" // {comment}" if comment else ""
 
-                    schema_info.append(
-                        f"  - {field_name}: {field_type} ({null_info}{key_info}{default_info}){comment_info}"
-                    )
+                    columns_data.append({
+                        "字段名": field_name,
+                        "类型": field_type,
+                        "允许NULL": is_nullable,
+                        "键类型": key_type,
+                        "默认值": default_value,
+                        "说明": comment
+                    })
 
-            return "\n".join(schema_info)
+            return {
+                "database": database,
+                "table": table,
+                "table_comment": table_comment,
+                "columns": columns_data
+            }
 
         except Exception as e:
-            return f"获取表 {database}.{table} 的schema失败: {str(e)}"
+            raise Exception(f"获取表 {database}.{table} 的schema失败: {str(e)}")
 
-    def get_database_schema(self, database: Optional[str] = None) -> str:
-        """获取数据库schema信息，包含表注释和字段注释"""
+    def get_database_schema(self, database: Optional[str] = None) -> Dict:
+        """获取数据库schema信息，返回数据库和表的列表数据"""
         try:
-            schema_info = []
-
             # 获取所有数据库
             if database:
                 databases = [database]
@@ -315,19 +315,19 @@ class StarrocksConnection:
                     cursor.execute("SHOW DATABASES")
                     databases = [row['Database'] for row in cursor.fetchall()]
 
+            # 收集数据库和表信息
+            tables_data = []
             for db in databases:
                 # 跳过系统数据库
                 if db in ['information_schema', 'mysql', 'performance_schema', '__internal_schema']:
                     continue
-
-                schema_info.append(f"\n数据库: {db}")
 
                 # 获取数据库中的表
                 with self.connection.cursor() as cursor:
                     cursor.execute(f"SHOW TABLES FROM {db}")
                     tables = cursor.fetchall()
 
-                    for table_row in tables[:5]:  # 只显示前5个表
+                    for table_row in tables:
                         table_name = list(table_row.values())[0]
 
                         # 获取表注释
@@ -335,25 +335,28 @@ class StarrocksConnection:
                         table_status = cursor.fetchone()
                         table_comment = ""
                         if table_status and table_status.get('Comment'):
-                            table_comment = f" // {table_status['Comment']}"
+                            table_comment = table_status['Comment']
 
-                        schema_info.append(f"\n  表: {db}.{table_name}{table_comment}")
-
-                        # 获取表结构（包含字段注释）
+                        # 获取字段数量
                         cursor.execute(f"SHOW FULL COLUMNS FROM {db}.{table_name}")
                         columns = cursor.fetchall()
+                        column_count = len(columns)
 
-                        for col in columns:
-                            field_name = col['Field']
-                            field_type = col['Type']
-                            comment = col.get('Comment', '')
-                            comment_info = f" // {comment}" if comment else ""
-                            schema_info.append(f"    - {field_name} ({field_type}){comment_info}")
+                        tables_data.append({
+                            "数据库": db,
+                            "表名": table_name,
+                            "完整表名": f"{db}.{table_name}",
+                            "字段数": column_count,
+                            "说明": table_comment
+                        })
 
-            return "\n".join(schema_info) if schema_info else "未找到数据库表信息"
+            return {
+                "databases": databases if not database else [database],
+                "tables": tables_data
+            }
 
         except Exception as e:
-            return f"获取schema失败: {str(e)}"
+            raise Exception(f"获取schema失败: {str(e)}")
 
 
 # ============================================================================
@@ -389,16 +392,16 @@ def get_llm():
 @tool
 def get_schema_info(database: str, table: str = None) -> str:
     """
-    获取数据库表结构信息
+    获取数据库表结构信息，以表格方式展示
 
     这是一个纯数据查询工具，不涉及LLM调用。
 
     Args:
         database: 数据库名称（必填）
-        table: 表名称（可选，如果提供则只返回该表的schema）
+        table: 表名称（可选，如果提供则只返回该表的字段信息）
 
     Returns:
-        JSON字符串，包含schema信息
+        JSON字符串，包含schema信息和表格配置
 
     Examples:
         get_schema_info(database="sales_db")
@@ -411,21 +414,81 @@ def get_schema_info(database: str, table: str = None) -> str:
         db.connect()
 
         if database and table:
-            schema_info = db.get_table_schema(database, table)
+            # 查询指定表的字段信息
+            schema_data = db.get_table_schema(database, table)
+            db.close()
+
+            # 构建字段信息表格
+            columns_data = schema_data["columns"]
+
+            # 构建文本格式的schema_info（供nl_to_sql使用）
+            schema_text = []
+            schema_text.append(f"数据库: {database}")
+            schema_text.append(f"表名: {table}")
+            schema_text.append(f"完整表名: {database}.{table}")
+            if schema_data["table_comment"]:
+                schema_text.append(f"表说明: {schema_data['table_comment']}")
+            schema_text.append("\n字段信息:")
+            for col in columns_data:
+                schema_text.append(f"  - {col['字段名']}: {col['类型']} (允许NULL: {col['允许NULL']}, 键类型: {col['键类型']}, 默认值: {col['默认值']}) // {col['说明']}")
+
+            result = {
+                "success": True,
+                "scenario": "table_schema",
+                "database": database,
+                "table": table,
+                "table_comment": schema_data["table_comment"],
+                "row_count": len(columns_data),
+                "data": columns_data,
+                "columns": ["字段名", "类型", "允许NULL", "键类型", "默认值", "说明"],
+                # 文本格式schema（供nl_to_sql使用）
+                "schema_info": "\n".join(schema_text),
+                # 表格配置
+                "chart_config": {
+                    "type": "table",
+                    "title": f"表结构 - {database}.{table}" + (f" ({schema_data['table_comment']})" if schema_data['table_comment'] else ""),
+                    "data": columns_data
+                },
+                "message": f"成功获取表 {database}.{table} 的结构，共 {len(columns_data)} 个字段"
+            }
+
         else:
-            schema_info = db.get_database_schema(database)
+            # 查询数据库中的表列表
+            schema_data = db.get_database_schema(database)
+            db.close()
 
-        db.close()
+            tables_data = schema_data["tables"]
 
-        result = {
-            "success": True,
-            "database": database,
-            "table": table,
-            "schema_info": schema_info
-        }
+            # 构建文本格式的schema_info（供nl_to_sql使用）
+            schema_text = []
+            current_db = None
+            for table_info in tables_data:
+                if table_info["数据库"] != current_db:
+                    current_db = table_info["数据库"]
+                    schema_text.append(f"\n数据库: {current_db}")
+                comment = f" // {table_info['说明']}" if table_info['说明'] else ""
+                schema_text.append(f"  表: {table_info['完整表名']} ({table_info['字段数']}个字段){comment}")
+
+            result = {
+                "success": True,
+                "scenario": "database_schema",
+                "database": database,
+                "row_count": len(tables_data),
+                "data": tables_data,
+                "columns": ["数据库", "表名", "完整表名", "字段数", "说明"],
+                # 文本格式schema（供nl_to_sql使用）
+                "schema_info": "\n".join(schema_text),
+                # 表格配置
+                "chart_config": {
+                    "type": "table",
+                    "title": f"数据库表列表 - {database}" if database else "所有数据库表列表",
+                    "data": tables_data
+                },
+                "message": f"成功获取数据库 {database} 的表列表，共 {len(tables_data)} 个表" if database else f"成功获取所有数据库的表列表，共 {len(tables_data)} 个表"
+            }
 
         logger.info(f"{log_prefix} 成功获取schema: database={database}, table={table}")
-        return json.dumps(result, ensure_ascii=False, indent=2)
+        return json.dumps(result, ensure_ascii=False, indent=2, cls=DateTimeEncoder)
 
     except Exception as e:
         logger.error(f"{log_prefix} 获取schema失败: {str(e)}")
