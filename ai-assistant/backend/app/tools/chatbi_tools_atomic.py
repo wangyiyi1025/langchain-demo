@@ -366,19 +366,19 @@ class StarrocksConnection:
 _llm_instance = None
 
 def get_llm():
-    """获取LLM实例（单例模式）"""
+    """获取LLM实例（单例模式）- 支持任何OpenAI兼容接口"""
     global _llm_instance
     if _llm_instance is None:
         try:
             _llm_instance = ChatOpenAI(
-                model=settings.QWEN_MODEL,
-                temperature=settings.QWEN_TEMPERATURE,
-                max_tokens=settings.QWEN_MAX_TOKENS,
-                max_retries=settings.QWEN_MAX_RETRIES,
-                api_key=settings.DASHSCOPE_API_KEY,
-                base_url=settings.DASHSCOPE_BASE_URL
+                model=settings.LLM_MODEL,
+                temperature=settings.LLM_TEMPERATURE,
+                max_tokens=settings.LLM_MAX_TOKENS,
+                max_retries=settings.LLM_MAX_RETRIES,
+                api_key=settings.OPENAI_API_KEY,
+                base_url=settings.OPENAI_BASE_URL
             )
-            logger.info(f"LLM实例初始化成功: {settings.QWEN_MODEL}")
+            logger.info(f"LLM实例初始化成功: provider={settings.LLM_PROVIDER}, model={settings.LLM_MODEL}, base_url={settings.OPENAI_BASE_URL}")
         except Exception as e:
             logger.error(f"LLM实例初始化失败: {str(e)}")
             raise

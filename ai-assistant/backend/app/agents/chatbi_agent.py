@@ -44,14 +44,14 @@ class ChatBIAgent(BaseAgent):
         # 初始化LLM（使用OpenAI兼容模式）
         try:
             self.llm = ChatOpenAI(
-                model=settings.QWEN_MODEL,
-                temperature=settings.QWEN_TEMPERATURE,
-                max_tokens=settings.QWEN_MAX_TOKENS,
-                max_retries=settings.QWEN_MAX_RETRIES,
-                api_key=settings.DASHSCOPE_API_KEY,
-                base_url=settings.DASHSCOPE_BASE_URL
+                model=settings.LLM_MODEL,
+                temperature=settings.LLM_TEMPERATURE,
+                max_tokens=settings.LLM_MAX_TOKENS,
+                max_retries=settings.LLM_MAX_RETRIES,
+                api_key=settings.OPENAI_API_KEY,
+                base_url=settings.OPENAI_BASE_URL
             )
-            logger.info(f"ChatBI Agent LLM 初始化成功: 模型={settings.QWEN_MODEL}, Base URL={settings.DASHSCOPE_BASE_URL}")
+            logger.info(f"ChatBI Agent LLM 初始化成功: provider={settings.LLM_PROVIDER}, model={settings.LLM_MODEL}, base_url={settings.OPENAI_BASE_URL}")
         except Exception as e:
             logger.error(f"【错误】ChatOpenAI模型初始化失败: {str(e)}")
             raise
