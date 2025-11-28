@@ -607,8 +607,10 @@ def nl_to_sql(question: str, schema_info: str, context: str = None) -> str:
             "current_day": current_day,
             "time_knowledge": time_knowledge
         })
-
-        logger.info(f"{log_prefix} 【LLM请求】:{llm_logcontent}，【LLM响应】:{response.content}")
+        logger.debug(f"{log_prefix} 【LLM请求】:{llm_logcontent}，【LLM响应】:{response.content}")
+        logger.info(f"{log_prefix} 【LLM请求】:{question}，【LLM响应】:{
+            json.dumps(response.content, ensure_ascii=False, indent=2)
+            }")
 
         # 清理SQL
         sql = response.content.strip()
@@ -805,7 +807,12 @@ def analyze_data(data: str, question: str) -> str:
             "data_stats": data_stats
         })
 
-        logger.info(f"{log_prefix} 【LLM请求】:{llm_logcontent}，【LLM响应】:{response.content}")
+        logger.debug(f"{log_prefix} 【LLM请求】:{llm_logcontent}，【LLM响应】:{
+            json.dumps(response.content, ensure_ascii=False, indent=2)
+            }")
+        logger.info(f"{log_prefix} 【LLM请求】:{question}，【LLM响应】:{
+            json.dumps(response.content, ensure_ascii=False, indent=2)
+            }")
 
         # 解析响应
         content = response.content.strip()
@@ -960,7 +967,10 @@ def suggest_chart(data: str, question: str, analysis: str = None) -> str:
             "analysis_info": analysis_info
         })
 
-        logger.info(f"{log_prefix} 【LLM请求】:{llm_logcontent}，【LLM响应】:{response.content}")
+        logger.debug(f"{log_prefix} 【LLM请求】:{llm_logcontent}，【LLM响应】:{
+            json.dumps(response.content, ensure_ascii=False, indent=2)
+            }")
+        logger.info(f"{log_prefix} 【LLM请求】:{question}，【LLM响应】:{response.content}")
 
         # 解析响应
         content = response.content.strip()
