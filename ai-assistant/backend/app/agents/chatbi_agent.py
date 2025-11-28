@@ -5,7 +5,7 @@ import os
 import sys
 import logging
 from typing import List, Optional, Dict, Any
-from langchain_community.chat_models import ChatTongyi
+from langchain_openai import ChatOpenAI
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
@@ -27,19 +27,19 @@ class ChatBIAgent(BaseAgent):
     def __init__(self):
         super().__init__()
 
-        # 初始化LLM
+        # 初始化LLM（使用OpenAI兼容模式）
         try:
-            self.llm = ChatTongyi(
+            self.llm = ChatOpenAI(
                 model=settings.QWEN_MODEL,
                 temperature=settings.QWEN_TEMPERATURE,
                 max_tokens=settings.QWEN_MAX_TOKENS,
                 max_retries=settings.QWEN_MAX_RETRIES,
-                dashscope_api_key=settings.DASHSCOPE_API_KEY,
-                base_url=settings.DASHSCOPE_BASE_URL,
-                stream=False  # 禁用流式输出以避免tool calling解析错误
+                api_key=settings.DASHSCOPE_API_KEY,
+                base_url=settings.DASHSCOPE_BASE_URL
             )
+            logger.info(f"ChatBI Agent LLM 初始化成功: 模型={settings.QWEN_MODEL}, Base URL={settings.DASHSCOPE_BASE_URL}")
         except Exception as e:
-            logger.error(f"【错误】ChatTongyi模型初始化失败: {str(e)}")
+            logger.error(f"【错误】ChatOpenAI模型初始化失败: {str(e)}")
             raise
 
         # ChatBI专用工具

@@ -1,7 +1,7 @@
 """
 通用聊天Agent - 不包含数据分析功能
 """
-from langchain_community.chat_models.tongyi import ChatTongyi
+from langchain_openai import ChatOpenAI
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from typing import List, Dict, Any, Optional
@@ -26,14 +26,13 @@ class ChatAgent(BaseAgent):
         """初始化Agent"""
         super().__init__()
 
-        self.llm = ChatTongyi(
+        self.llm = ChatOpenAI(
             model=settings.QWEN_MODEL,
             temperature=settings.QWEN_TEMPERATURE,
             max_tokens=settings.QWEN_MAX_TOKENS,
             max_retries=settings.QWEN_MAX_RETRIES,
-            dashscope_api_key=settings.DASHSCOPE_API_KEY,
-            base_url=settings.DASHSCOPE_BASE_URL,
-            stream=False  # 禁用流式输出以避免tool calling解析错误
+            api_key=settings.DASHSCOPE_API_KEY,
+            base_url=settings.DASHSCOPE_BASE_URL)
         )
 
         # 定义通用工具（移除了ChatBI工具）

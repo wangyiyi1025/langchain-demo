@@ -3,7 +3,7 @@ ChatBI 数据分析工具
 支持自然语言查询 Starrocks 数据库并生成可视化图表
 """
 from langchain_core.tools import tool
-from langchain_community.chat_models.tongyi import ChatTongyi
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 import pymysql
 import pandas as pd
@@ -388,17 +388,16 @@ class ChatBIAnalyzer:
     def __init__(self):
         """初始化分析器"""
         try:
-            self.llm = ChatTongyi(
+            self.llm = ChatOpenAI(
                 model=settings.QWEN_MODEL,
                 temperature=settings.QWEN_TEMPERATURE,
                 max_tokens=settings.QWEN_MAX_TOKENS,
                 max_retries=settings.QWEN_MAX_RETRIES,
-                dashscope_api_key=settings.DASHSCOPE_API_KEY,
-                base_url=settings.DASHSCOPE_BASE_URL,
-                stream=False  # 禁用流式输出以避免tool calling解析错误
+                api_key=settings.DASHSCOPE_API_KEY,
+                base_url=settings.DASHSCOPE_BASE_URL)
             )
         except Exception as e:
-            logger.error(f"【错误】ChatTongyi模型初始化失败: {str(e)}")
+            logger.error(f"【错误】ChatOpenAI模型初始化失败: {str(e)}")
             raise
         self.db = StarrocksConnection()
 
