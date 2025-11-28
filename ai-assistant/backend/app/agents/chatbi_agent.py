@@ -281,82 +281,92 @@ class ChatBIAgent(BaseAgent):
 
     def _get_react_prompt(self) -> str:
         """获取ReAct格式的提示词"""
-        return """你需要尽可能准确地回答用户问题。你可以使用以下工具：
+        return """回答用户问题。你可以使用以下工具：
 
 {tools}
 
-## 🚨 关键：输出格式规则
+## 🚨🚨🚨 关键规则（必读！）🚨🚨🚨
 
-你必须严格遵循以下格式。绝对不要使用 <think>、<tool_call> 或任何 XML 标签格式。
+1. **绝对禁止**：不要使用 <think>、<tool_call>、<answer> 或任何 < > 标签！
+2. **只能使用这5个关键词**："Thought:"、"Action:"、"Action Input:"、"Observation:"、"Final Answer:"
+3. **Observation 由系统提供**：你永远不要自己写 "Observation:"，系统会自动添加！
 
-必须使用这种格式：
+## 📝 标准格式（每次只输出其中一部分）
 
-Question: 用户输入的问题
-Thought: 思考应该做什么
-Action: 要使用的工具名称，必须是 [{tool_names}] 中的一个
-Action Input: 工具的输入参数（必须是有效的 JSON 格式）
-Observation: 工具返回的结果
-... (Thought/Action/Action Input/Observation 可以重复 N 次)
-Thought: 我现在知道最终答案了
-Final Answer: 对用户问题的最终回答
+**第一次输出（你输出）：**
+```
+Thought: [思考要做什么]
+Action: [工具名称]
+Action Input: [JSON参数]
+```
 
-## ⚠️ 重要规则：
-1. **绝对不要**使用 <think>、<tool_call> 或任何 XML 风格的标签
-2. **必须**使用精确的关键词："Thought:"、"Action:"、"Action Input:"、"Final Answer:"
-3. **Action Input 必须是有效的 JSON**，例如：{{"question": "查询数据", "database": "chatbi_data", "table": "users"}}
-4. **Action 必须是上面列出的工具名称之一**
-5. 在 "Action Input:" 之后，下一行必须是 "Observation:"（由系统提供）
-6. **不要**在 Thought 中包含 Action，必须分开写
-7. **每个关键词后面必须有冒号和空格**，例如 "Thought: "（而不是 "Thought:"）
+**系统自动添加：**
+```
+Observation: [工具返回结果]
+```
 
-## 🎯 工具选择策略：
-- 只查询数据 → 使用：chatbi_query_only_chain
-- 查询+分析 → 使用：chatbi_query_with_analysis_chain
-- 查询+可视化 → 使用：chatbi_query_with_chart_chain
-- 查询+分析+可视化 → 使用：chatbi_full_analysis_chain
+**第二次输出（你输出）：**
+```
+Thought: [分析结果]
+Final Answer: [最终答案]
+```
 
-## 📝 表上下文处理：
-如果用户消息包含 `#数据库名.表名` 格式（例如 `#chatbi_data.salary_tracking`）：
-- 提取：database="chatbi_data", table="salary_tracking"
-- 传递给工具：{{"question": "...", "database": "chatbi_data", "table": "salary_tracking"}}
+## ⚠️ 重要：分步输出
 
-## 📚 示例 1：
+- **不要在一次输出中包含整个流程**
+- 第一次只输出：Thought + Action + Action Input
+- 等待系统添加 Observation
+- 第二次才输出：Thought + Final Answer
 
-Question: #chatbi_data.salary_tracking 查看2条样例数据
-Thought: 用户要查询 chatbi_data 数据库的 salary_tracking 表的样例数据，这是简单查询，应该使用 chatbi_query_only_chain
-Action: chatbi_query_only_chain
-Action Input: {{"question": "查看2条样例数据", "database": "chatbi_data", "table": "salary_tracking"}}
-Observation: {{"success": true, "data": [...], "row_count": 2}}
-Thought: 我已经获得了数据，现在可以给用户最终答案
-Final Answer: 已成功查询到2条样例数据...
+## 🎯 工具选择
 
-## 📚 示例 2：
+- 查看表结构 → get_schema_info
+- 只查询数据 → chatbi_query_only_chain
+- 查询+分析 → chatbi_query_with_analysis_chain
+- 查询+可视化 → chatbi_query_with_chart_chain
 
-Question: #chatbi_data.sales 分析本月销售趋势并生成图表
-Thought: 用户需要分析 + 可视化，应该使用 chatbi_full_analysis_chain
-Action: chatbi_full_analysis_chain
-Action Input: {{"question": "分析本月销售趋势并生成图表", "database": "chatbi_data", "table": "sales"}}
-Observation: {{"success": true, "data": [...], "analysis": {{...}}, "chart_config": {{...}}}}
-Thought: 我现在知道最终答案了
-Final Answer: 分析结果和图表配置如下...
+## 📚 正确示例
 
-## 📚 示例 3（错误示范 - 不要这样做）：
+**用户问题：** #chatbi_data.salary_tracking 查看表结构
 
-❌ 错误：
-<think>用户要查询数据</think>
-<tool_call>{{"name": "chatbi_query_only_chain", "arguments": {{}}}}</tool_call>
+**你的第一次输出：**
+```
+Thought: 用户要查看 salary_tracking 表的结构，使用 get_schema_info 工具
+Action: get_schema_info
+Action Input: {{"database": "chatbi_data", "table": "salary_tracking"}}
+```
 
-✅ 正确：
-Thought: 用户要查询数据
-Action: chatbi_query_only_chain
-Action Input: {{"question": "...", "database": "...", "table": "..."}}
+**系统自动添加 Observation 后，你的第二次输出：**
+```
+Thought: 已获取表结构信息，现在给出最终答案
+Final Answer: salary_tracking 表包含以下字段：id、employee_id、base_salary...
+```
 
-## ⚡ 现在开始！
+## ❌ 错误示例（绝对不要这样）
 
-记住：必须严格使用 "Thought:"、"Action:"、"Action Input:"、"Observation:"、"Final Answer:" 这些关键词。
+```
+<think>用户要查看表结构</think>    ← 禁止！不要用标签！
+Action: get_schema_info
+```
+
+或者：
+
+```
+Thought: 查看表结构
+Action: get_schema_info
+Action Input: {{"database": "chatbi_data"}}
+Observation: {{...}}                    ← 禁止！不要自己写 Observation！
+Final Answer: 表结构如下...
+```
+
+## 🎯 工具名称列表
+
+{tool_names}
+
+## ⚡ 开始回答
 
 Question: {input}
-Thought: {agent_scratchpad}"""
+Thought:{agent_scratchpad}"""
 
     def _extract_table_context(self, message: str) -> tuple[str, Optional[str], Optional[str]]:
         """
