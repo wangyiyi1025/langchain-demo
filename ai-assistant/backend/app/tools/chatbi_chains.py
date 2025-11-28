@@ -17,6 +17,7 @@ from langchain_core.tools import tool
 import json
 import logging
 from typing import Dict, Any, Optional
+from datetime import datetime
 
 from app.tools.chatbi_tools_atomic import (
     get_schema_info,
@@ -43,8 +44,17 @@ class ChatBIChainExecutor:
         """调用工具并解析JSON结果"""
         try:
             result_str = tool_func.invoke(params)
-            result = json.loads(result_str)
-            return result
+
+            # 尝试解析JSON，如果失败则认为是普通字符串结果
+            try:
+                result = json.loads(result_str)
+                return result
+            except json.JSONDecodeError:
+                # 对于非JSON返回（如时间工具），包装成统一格式
+                return {
+                    "success": True,
+                    "result": result_str
+                }
         except Exception as e:
             logger.error(f"{self.log_prefix} 工具调用失败: {tool_func.name}, 错误: {str(e)}")
             return {"success": False, "error": str(e)}
@@ -66,7 +76,14 @@ class ChatBIChainExecutor:
         try:
             # Step 1: 获取时间（无LLM）
             time_result = self._call_tool(get_current_time, {})
-            time_info = json.dumps(time_result) if time_result.get("success") else None
+            # 构建时间上下文
+            if time_result.get("success"):
+                time_info = json.dumps({
+                    "current_time": time_result.get("result", ""),
+                    "timestamp": datetime.now().isoformat()
+                })
+            else:
+                time_info = "{}"  # 传递空JSON对象而不是None
 
             # Step 2: 获取Schema（无LLM）
             schema_result = self._call_tool(get_schema_info, {
@@ -140,9 +157,16 @@ class ChatBIChainExecutor:
         logger.info(f"{self.log_prefix} 执行场景2: 查询+分析 - {question}")
 
         try:
-            # Step 1-4: 同场景1
+            # Step 1: 获取时间（无LLM）
             time_result = self._call_tool(get_current_time, {})
-            time_info = json.dumps(time_result) if time_result.get("success") else None
+            # 构建时间上下文
+            if time_result.get("success"):
+                time_info = json.dumps({
+                    "current_time": time_result.get("result", ""),
+                    "timestamp": datetime.now().isoformat()
+                })
+            else:
+                time_info = "{}"  # 传递空JSON对象而不是None
 
             schema_result = self._call_tool(get_schema_info, {
                 "database": database,
@@ -221,9 +245,16 @@ class ChatBIChainExecutor:
         logger.info(f"{self.log_prefix} 执行场景3: 查询+可视化 - {question}")
 
         try:
-            # Step 1-4: 同场景1
+            # Step 1: 获取时间（无LLM）
             time_result = self._call_tool(get_current_time, {})
-            time_info = json.dumps(time_result) if time_result.get("success") else None
+            # 构建时间上下文
+            if time_result.get("success"):
+                time_info = json.dumps({
+                    "current_time": time_result.get("result", ""),
+                    "timestamp": datetime.now().isoformat()
+                })
+            else:
+                time_info = "{}"  # 传递空JSON对象而不是None
 
             schema_result = self._call_tool(get_schema_info, {
                 "database": database,
