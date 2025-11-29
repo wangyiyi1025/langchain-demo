@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import ChartRenderer from './ChartRenderer'
 
 function ChatMessage({ message }) {
   const { role, content, timestamp } = message
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   // 尝试从内容中提取 JSON 数据（包括 chart_config）
   const { textContent, chartConfig, jsonData } = useMemo(() => {
@@ -55,34 +56,76 @@ function ChatMessage({ message }) {
     ))
   }
 
-  // 如果有 JSON 数据，格式化显示
-  const formatJsonInfo = () => {
-    if (!jsonData) return null
+  // 检查是否有 SQL 详情（SQL、解释、图表建议）
+  const hasSqlDetails = () => {
+    if (!jsonData) return false
+    return jsonData.sql || jsonData.sql_explanation || jsonData.chart_suggestion
+  }
 
-    const info = []
+  // 渲染 SQL 详情区域（可折叠）
+  const renderSqlDetails = () => {
+    if (!hasSqlDetails()) return null
 
+    const details = []
+
+    // SQL 查询
     if (jsonData.sql) {
-      info.push(
-        <div key="sql" className="message-sql">
+      details.push(
+        <div key="sql" className="sql-detail-item">
           <strong>SQL 查询：</strong>
           <pre>{jsonData.sql}</pre>
         </div>
       )
     }
 
-    if (jsonData.row_count !== undefined) {
-      info.push(
-        <div key="rowcount" className="message-info">
-          返回 {jsonData.row_count} 行数据
+    // SQL 解释（新增）
+    if (jsonData.sql_explanation) {
+      details.push(
+        <div key="explanation" className="sql-detail-item">
+          <strong>查询说明：</strong>
+          <div className="sql-explanation">{jsonData.sql_explanation}</div>
         </div>
       )
     }
 
+    // 图表建议
     if (jsonData.chart_suggestion) {
       const suggestion = jsonData.chart_suggestion
+      details.push(
+        <div key="suggestion" className="sql-detail-item">
+          <strong>图表建议：</strong>
+          <span>{suggestion.chart_type} - {suggestion.reason}</span>
+        </div>
+      )
+    }
+
+    return (
+      <div className="sql-details-container">
+        <button
+          className="sql-details-toggle"
+          onClick={() => setIsDetailsOpen(!isDetailsOpen)}
+        >
+          {isDetailsOpen ? '▼' : '▶'} SQL详情
+        </button>
+        {isDetailsOpen && (
+          <div className="sql-details-content">
+            {details}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // 如果有其他 JSON 数据（如 row_count），单独显示
+  const formatOtherJsonInfo = () => {
+    if (!jsonData) return null
+
+    const info = []
+
+    if (jsonData.row_count !== undefined) {
       info.push(
-        <div key="suggestion" className="message-suggestion">
-          <strong>图表建议：</strong>{suggestion.chart_type} - {suggestion.reason}
+        <div key="rowcount" className="message-info">
+          返回 {jsonData.row_count} 行数据
         </div>
       )
     }
@@ -94,7 +137,8 @@ function ChatMessage({ message }) {
     <div className={`message ${role}`}>
       <div className="message-content">
         {textContent && formatContent(textContent)}
-        {formatJsonInfo()}
+        {formatOtherJsonInfo()}
+        {renderSqlDetails()}
         {chartConfig && <ChartRenderer chartConfig={chartConfig} />}
       </div>
       {timestamp && (

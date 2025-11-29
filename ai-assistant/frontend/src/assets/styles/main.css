@@ -186,6 +186,94 @@ body {
   color: #667eea;
 }
 
+/* SQL 详情折叠区域样式 */
+.sql-details-container {
+  margin: 12px 0;
+}
+
+.sql-details-toggle {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sql-details-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.sql-details-content {
+  margin-top: 12px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sql-detail-item {
+  margin: 12px 0;
+}
+
+.sql-detail-item:first-child {
+  margin-top: 0;
+}
+
+.sql-detail-item:last-child {
+  margin-bottom: 0;
+}
+
+.sql-detail-item strong {
+  color: #667eea;
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.95em;
+}
+
+.sql-detail-item pre {
+  background: #2d2d2d;
+  color: #f8f8f2;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85em;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.sql-explanation {
+  color: #333;
+  line-height: 1.6;
+  font-size: 0.9em;
+  white-space: pre-line;
+}
+
+.sql-detail-item span {
+  color: #555;
+  font-size: 0.9em;
+}
+
 /* 图表容器样式 */
 .chart-container {
   margin: 16px 0;
