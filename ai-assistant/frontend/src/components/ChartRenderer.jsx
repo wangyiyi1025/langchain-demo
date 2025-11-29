@@ -69,8 +69,8 @@ function ChartRenderer({ chartConfig }) {
       <div className="chart-table-container" ref={chartRef}>
         <div className="chart-header">
           <h3 className="chart-title">{title || '数据表格'}</h3>
-          <button className="download-btn" onClick={downloadExcel}>
-            ⬇️ 下载 Excel
+          <button className="download-btn" onClick={downloadExcel} title="下载 Excel">
+            ⬇️
           </button>
         </div>
         <div className="chart-table-wrapper">
@@ -116,8 +116,8 @@ function ChartRenderer({ chartConfig }) {
       <div className="chart-container" ref={chartRef}>
         <div className="chart-header">
           <h3 className="chart-title">{title || '柱状图'}</h3>
-          <button className="download-btn" onClick={downloadImage}>
-            ⬇️ 下载图片
+          <button className="download-btn" onClick={downloadImage} title="下载图片">
+            ⬇️
           </button>
         </div>
         <ResponsiveContainer width="100%" height={400}>
@@ -167,8 +167,8 @@ function ChartRenderer({ chartConfig }) {
       <div className="chart-container" ref={chartRef}>
         <div className="chart-header">
           <h3 className="chart-title">{title || '折线图'}</h3>
-          <button className="download-btn" onClick={downloadImage}>
-            ⬇️ 下载图片
+          <button className="download-btn" onClick={downloadImage} title="下载图片">
+            ⬇️
           </button>
         </div>
         <ResponsiveContainer width="100%" height={400}>
@@ -212,8 +212,8 @@ function ChartRenderer({ chartConfig }) {
       <div className="chart-container" ref={chartRef}>
         <div className="chart-header">
           <h3 className="chart-title">{title || '饼图'}</h3>
-          <button className="download-btn" onClick={downloadImage}>
-            ⬇️ 下载图片
+          <button className="download-btn" onClick={downloadImage} title="下载图片">
+            ⬇️
           </button>
         </div>
         <ResponsiveContainer width="100%" height={400}>
@@ -244,8 +244,8 @@ function ChartRenderer({ chartConfig }) {
     <div className="chart-container" ref={chartRef}>
       <div className="chart-header">
         <h3 className="chart-title">{title || '散点图'}</h3>
-        <button className="download-btn" onClick={downloadImage}>
-          ⬇️ 下载图片
+        <button className="download-btn" onClick={downloadImage} title="下载图片">
+          ⬇️
         </button>
       </div>
       <ResponsiveContainer width="100%" height={400}>
@@ -285,8 +285,8 @@ function ChartRenderer({ chartConfig }) {
       <div className="chart-container" ref={chartRef}>
         <div className="chart-header">
           <h3 className="chart-title">{title || '面积图'}</h3>
-          <button className="download-btn" onClick={downloadImage}>
-            ⬇️ 下载图片
+          <button className="download-btn" onClick={downloadImage} title="下载图片">
+            ⬇️
           </button>
         </div>
         <ResponsiveContainer width="100%" height={400}>
@@ -341,8 +341,8 @@ function ChartRenderer({ chartConfig }) {
       <div className="chart-container" ref={chartRef}>
         <div className="chart-header">
           <h3 className="chart-title">{title || '热力图'}</h3>
-          <button className="download-btn" onClick={downloadImage}>
-            ⬇️ 下载图片
+          <button className="download-btn" onClick={downloadImage} title="下载图片">
+            ⬇️
           </button>
         </div>
         <div className="chart-table-wrapper">
