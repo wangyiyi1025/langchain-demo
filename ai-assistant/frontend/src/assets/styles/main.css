@@ -186,16 +186,17 @@ body {
   color: #667eea;
 }
 
-/* SQL 详情折叠区域样式 */
-.sql-details-container {
+/* 分析详情折叠区域样式 */
+.analysis-details-container {
   margin: 12px 0;
 }
 
-.sql-details-toggle {
+.analysis-details-toggle {
+  width: 100%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
-  padding: 8px 16px;
+  padding: 10px 16px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.9em;
@@ -203,15 +204,16 @@ body {
   transition: all 0.3s;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
 }
 
-.sql-details-toggle:hover {
+.analysis-details-toggle:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-.sql-details-content {
+.analysis-details-content {
   margin-top: 12px;
   padding: 16px;
   background: #f8f9fa;
@@ -231,26 +233,26 @@ body {
   }
 }
 
-.sql-detail-item {
+.analysis-detail-item {
   margin: 12px 0;
 }
 
-.sql-detail-item:first-child {
+.analysis-detail-item:first-child {
   margin-top: 0;
 }
 
-.sql-detail-item:last-child {
+.analysis-detail-item:last-child {
   margin-bottom: 0;
 }
 
-.sql-detail-item strong {
+.analysis-detail-item strong {
   color: #667eea;
   display: block;
   margin-bottom: 8px;
   font-size: 0.95em;
 }
 
-.sql-detail-item pre {
+.analysis-detail-item pre {
   background: #2d2d2d;
   color: #f8f8f2;
   padding: 12px;
@@ -269,7 +271,7 @@ body {
   white-space: pre-line;
 }
 
-.sql-detail-item span {
+.analysis-detail-item span {
   color: #555;
   font-size: 0.9em;
 }
@@ -287,12 +289,45 @@ body {
   background: #fafbfc;
 }
 
+/* 图表头部（标题 + 下载按钮） */
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
 .chart-title {
   font-size: 1.1em;
   font-weight: 600;
   color: #333;
-  margin-bottom: 16px;
-  text-align: center;
+  margin: 0;
+}
+
+/* 下载按钮样式 */
+.download-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 500;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.download-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.download-btn:active {
+  transform: translateY(0);
 }
 
 .chart-empty {

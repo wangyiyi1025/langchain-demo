@@ -56,32 +56,42 @@ function ChatMessage({ message }) {
     ))
   }
 
-  // 检查是否有 SQL 详情（SQL、解释、图表建议）
-  const hasSqlDetails = () => {
+  // 检查是否有分析详情（SQL、解释、图表建议、行数等）
+  const hasAnalysisDetails = () => {
     if (!jsonData) return false
-    return jsonData.sql || jsonData.sql_explanation || jsonData.chart_suggestion
+    return jsonData.sql || jsonData.sql_explanation || jsonData.chart_suggestion || jsonData.row_count !== undefined
   }
 
-  // 渲染 SQL 详情区域（可折叠）
-  const renderSqlDetails = () => {
-    if (!hasSqlDetails()) return null
+  // 渲染分析详情区域（可折叠）
+  const renderAnalysisDetails = () => {
+    if (!hasAnalysisDetails()) return null
 
     const details = []
+
+    // 返回数据行数（放在第一位）
+    if (jsonData.row_count !== undefined) {
+      details.push(
+        <div key="rowcount" className="analysis-detail-item">
+          <strong>数据行数：</strong>
+          <span>返回 {jsonData.row_count} 行数据</span>
+        </div>
+      )
+    }
 
     // SQL 查询
     if (jsonData.sql) {
       details.push(
-        <div key="sql" className="sql-detail-item">
+        <div key="sql" className="analysis-detail-item">
           <strong>SQL 查询：</strong>
           <pre>{jsonData.sql}</pre>
         </div>
       )
     }
 
-    // SQL 解释（新增）
+    // SQL 解释
     if (jsonData.sql_explanation) {
       details.push(
-        <div key="explanation" className="sql-detail-item">
+        <div key="explanation" className="analysis-detail-item">
           <strong>查询说明：</strong>
           <div className="sql-explanation">{jsonData.sql_explanation}</div>
         </div>
@@ -92,7 +102,7 @@ function ChatMessage({ message }) {
     if (jsonData.chart_suggestion) {
       const suggestion = jsonData.chart_suggestion
       details.push(
-        <div key="suggestion" className="sql-detail-item">
+        <div key="suggestion" className="analysis-detail-item">
           <strong>图表建议：</strong>
           <span>{suggestion.chart_type} - {suggestion.reason}</span>
         </div>
@@ -100,15 +110,15 @@ function ChatMessage({ message }) {
     }
 
     return (
-      <div className="sql-details-container">
+      <div className="analysis-details-container">
         <button
-          className="sql-details-toggle"
+          className="analysis-details-toggle"
           onClick={() => setIsDetailsOpen(!isDetailsOpen)}
         >
-          {isDetailsOpen ? '▼' : '▶'} SQL详情
+          {isDetailsOpen ? '▼' : '▶'} 分析详情
         </button>
         {isDetailsOpen && (
-          <div className="sql-details-content">
+          <div className="analysis-details-content">
             {details}
           </div>
         )}
@@ -116,29 +126,11 @@ function ChatMessage({ message }) {
     )
   }
 
-  // 如果有其他 JSON 数据（如 row_count），单独显示
-  const formatOtherJsonInfo = () => {
-    if (!jsonData) return null
-
-    const info = []
-
-    if (jsonData.row_count !== undefined) {
-      info.push(
-        <div key="rowcount" className="message-info">
-          返回 {jsonData.row_count} 行数据
-        </div>
-      )
-    }
-
-    return info.length > 0 ? <div className="message-json-info">{info}</div> : null
-  }
-
   return (
     <div className={`message ${role}`}>
       <div className="message-content">
         {textContent && formatContent(textContent)}
-        {formatOtherJsonInfo()}
-        {renderSqlDetails()}
+        {renderAnalysisDetails()}
         {chartConfig && <ChartRenderer chartConfig={chartConfig} />}
       </div>
       {timestamp && (
