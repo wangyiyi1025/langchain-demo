@@ -289,27 +289,24 @@ class ChatBIAgent(BaseAgent):
 
 1. **绝对禁止**：不要使用 <think>、<tool_call>、<answer> 或任何 < > 标签！
 2. **只能使用这5个关键词**："Thought:"、"Action:"、"Action Input:"、"Observation:"、"Final Answer:"
-3. **Observation 由系统提供**：你永远不要自己写 "Observation:"，系统会自动添加！
+3. **Action Input 必须是纯 JSON**：不要用代码块标记（```），直接写 JSON！
+4. **Observation 由系统提供**：你永远不要自己写 "Observation:"，系统会自动添加！
 
 ## 📝 标准格式（每次只输出其中一部分）
 
 **第一次输出（你输出）：**
-```
 Thought: [思考要做什么]
 Action: [工具名称]
-Action Input: [JSON参数]
-```
+Action Input: {{"参数1": "值1", "参数2": "值2"}}
+
+注意：Action Input 后面直接写 JSON，不要用 ``` 包裹！
 
 **系统自动添加：**
-```
 Observation: [工具返回结果]
-```
 
 **第二次输出（你输出）：**
-```
 Thought: [分析结果]
 Final Answer: [最终答案]
-```
 
 ## ⚠️ 重要：分步输出
 
@@ -330,34 +327,35 @@ Final Answer: [最终答案]
 **用户问题：** #chatbi_data.salary_tracking 查看表结构
 
 **你的第一次输出：**
-```
 Thought: 用户要查看 salary_tracking 表的结构，使用 get_schema_info 工具
 Action: get_schema_info
 Action Input: {{"database": "chatbi_data", "table": "salary_tracking"}}
-```
 
 **系统自动添加 Observation 后，你的第二次输出：**
-```
 Thought: 已获取表结构信息，现在给出最终答案
 Final Answer: salary_tracking 表包含以下字段：id、employee_id、base_salary...
-```
 
 ## ❌ 错误示例（绝对不要这样）
 
-```
-<think>用户要查看表结构</think>    ← 禁止！不要用标签！
+错误1 - 使用标签：
+<think>用户要查看表结构</think>
 Action: get_schema_info
+
+错误2 - 用代码块包裹 JSON：
+Action: get_schema_info
+Action Input: ```json
+{{"database": "chatbi_data", "table": "salary_tracking"}}
 ```
 
-或者：
-
-```
+错误3 - 自己写 Observation：
 Thought: 查看表结构
 Action: get_schema_info
 Action Input: {{"database": "chatbi_data"}}
-Observation: {{...}}                    ← 禁止！不要自己写 Observation！
+Observation: {{...}}
 Final Answer: 表结构如下...
-```
+
+✅ 正确格式：
+Action Input: {{"database": "chatbi_data", "table": "salary_tracking"}}
 
 ## 🎯 工具名称列表
 
