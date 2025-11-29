@@ -6,8 +6,8 @@ import sys
 import logging
 from typing import List, Optional, Dict, Any
 from langchain_openai import ChatOpenAI
-from langchain.agents import create_tool_calling_agent, AgentExecutor
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.agents import create_react_agent, create_tool_calling_agent, AgentExecutor
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, MessagesPlaceholder
 
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -77,25 +77,42 @@ class ChatBIAgent(BaseAgent):
             get_date_info         # 获取日期信息
         ]
 
-        # 创建ChatBI专用的系统提示词
-        self.prompt = ChatPromptTemplate.from_messages([
-            ("system", self._get_system_prompt()),
-            MessagesPlaceholder(variable_name="chat_history", optional=True),
-            ("human", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad"),
-        ])
+        # 根据配置选择 Agent 类型
+        agent_type = settings.AGENT_TYPE.lower()
+        logger.info(f"正在创建 ChatBI Agent，类型: {agent_type}")
 
-        # 创建Agent
-        agent = create_tool_calling_agent(self.llm, self.tools, self.prompt)
+        if agent_type == "tool_calling":
+            # 创建 Tool Calling Agent（适用于支持 function calling 的模型）
+            self.prompt = ChatPromptTemplate.from_messages([
+                ("system", self._get_system_prompt()),
+                MessagesPlaceholder(variable_name="chat_history", optional=True),
+                ("human", "{input}"),
+                MessagesPlaceholder(variable_name="agent_scratchpad"),
+            ])
+            agent = create_tool_calling_agent(self.llm, self.tools, self.prompt)
+            logger.info("✓ Tool Calling Agent 创建成功（适用于 OpenAI/GPT 等支持 function calling 的模型）")
 
-        # 配置AgentExecutor
+        elif agent_type == "react":
+            # 创建 ReAct Agent（适用于本地模型，如 Ollama/qwen）
+            self.prompt = PromptTemplate.from_template(self._get_react_prompt())
+            agent = create_react_agent(self.llm, self.tools, self.prompt)
+            logger.info("✓ ReAct Agent 创建成功（适用于本地模型，如 Ollama/qwen）")
+
+        else:
+            raise ValueError(f"不支持的 Agent 类型: {agent_type}，请设置 AGENT_TYPE 为 'react' 或 'tool_calling'")
+
+        # 配置 AgentExecutor（使用配置文件中的参数）
         self.agent_executor = AgentExecutor(
             agent=agent,
             tools=self.tools,
-            verbose=True,
-            handle_parsing_errors=True,
-            max_iterations=5
+            verbose=settings.AGENT_VERBOSE,
+            handle_parsing_errors=settings.AGENT_HANDLE_PARSING_ERRORS,
+            max_iterations=settings.AGENT_MAX_ITERATIONS
         )
+
+        logger.info(f"✓ AgentExecutor 配置完成: verbose={settings.AGENT_VERBOSE}, "
+                   f"max_iterations={settings.AGENT_MAX_ITERATIONS}, "
+                   f"handle_parsing_errors={settings.AGENT_HANDLE_PARSING_ERRORS}")
 
     def get_agent_type(self) -> str:
         return "chatbi"
@@ -262,6 +279,93 @@ class ChatBIAgent(BaseAgent):
 
 现在，请根据用户的问题，编排合适的工具调用流程。"""
 
+    def _get_react_prompt(self) -> str:
+        """获取ReAct格式的提示词"""
+        return """回答用户问题。你可以使用以下工具：
+
+{tools}
+
+## 🚨🚨🚨 关键规则（必读！）🚨🚨🚨
+
+1. **绝对禁止**：不要使用 <think>、<tool_call>、<answer> 或任何 < > 标签！
+2. **只能使用这5个关键词**："Thought:"、"Action:"、"Action Input:"、"Observation:"、"Final Answer:"
+3. **Action Input 必须是纯 JSON**：不要用代码块标记（```），直接写 JSON！
+4. **Observation 由系统提供**：你永远不要自己写 "Observation:"，系统会自动添加！
+
+## 📝 标准格式（每次只输出其中一部分）
+
+**第一次输出（你输出）：**
+Thought: [思考要做什么]
+Action: [工具名称]
+Action Input: {{"参数1": "值1", "参数2": "值2"}}
+
+注意：Action Input 后面直接写 JSON，不要用 ``` 包裹！
+
+**系统自动添加：**
+Observation: [工具返回结果]
+
+**第二次输出（你输出）：**
+Thought: [分析结果]
+Final Answer: [最终答案]
+
+## ⚠️ 重要：分步输出
+
+- **不要在一次输出中包含整个流程**
+- 第一次只输出：Thought + Action + Action Input
+- 等待系统添加 Observation
+- 第二次才输出：Thought + Final Answer
+
+## 🎯 工具选择
+
+- 查看表结构 → get_schema_info
+- 只查询数据 → chatbi_query_only_chain
+- 查询+分析 → chatbi_query_with_analysis_chain
+- 查询+可视化 → chatbi_query_with_chart_chain
+
+## 📚 正确示例
+
+**用户问题：** #chatbi_data.salary_tracking 查看表结构
+
+**你的第一次输出：**
+Thought: 用户要查看 salary_tracking 表的结构，使用 get_schema_info 工具
+Action: get_schema_info
+Action Input: {{"database": "chatbi_data", "table": "salary_tracking"}}
+
+**系统自动添加 Observation 后，你的第二次输出：**
+Thought: 已获取表结构信息，现在给出最终答案
+Final Answer: salary_tracking 表包含以下字段：id、employee_id、base_salary...
+
+## ❌ 错误示例（绝对不要这样）
+
+错误1 - 使用标签：
+<think>用户要查看表结构</think>
+Action: get_schema_info
+
+错误2 - 用代码块包裹 JSON：
+Action: get_schema_info
+Action Input: ```json
+{{"database": "chatbi_data", "table": "salary_tracking"}}
+```
+
+错误3 - 自己写 Observation：
+Thought: 查看表结构
+Action: get_schema_info
+Action Input: {{"database": "chatbi_data"}}
+Observation: {{...}}
+Final Answer: 表结构如下...
+
+✅ 正确格式：
+Action Input: {{"database": "chatbi_data", "table": "salary_tracking"}}
+
+## 🎯 工具名称列表
+
+{tool_names}
+
+## ⚡ 开始回答
+
+Question: {input}
+Thought:{agent_scratchpad}"""
+
     def _extract_table_context(self, message: str) -> tuple[str, Optional[str], Optional[str]]:
         """
         从消息中提取表上下文信息
@@ -290,7 +394,7 @@ class ChatBIAgent(BaseAgent):
         同步调用Agent处理消息
         Args:
             message: 用户消息（可能包含#database.table）
-            chat_history: 对话历史
+            chat_history: 对话历史（tool_calling agent 支持，react agent 不支持）
             **kwargs: 其他参数（可包含table_context）
         Returns:
             str: Agent响应
@@ -306,22 +410,23 @@ class ChatBIAgent(BaseAgent):
         else:
             enhanced_message = message
 
-        # 格式化对话历史
-        formatted_history = []
-        if chat_history:
-            formatted_history = self.format_chat_history(chat_history[-2:])  # 只保留最近2条
-
         try:
-            result = self.agent_executor.invoke({
-                "input": enhanced_message,
-                "chat_history": formatted_history
-            })
+            # 根据 agent 类型构建输入
+            agent_input = {"input": enhanced_message}
+
+            # 如果是 tool_calling agent，支持 chat_history
+            if settings.AGENT_TYPE.lower() == "tool_calling" and chat_history:
+                formatted_history = self.format_chat_history(chat_history[-2:])  # 只保留最近2条
+                agent_input["chat_history"] = formatted_history
+
+            result = self.agent_executor.invoke(agent_input)
             output = result.get("output", "抱歉，我无法生成回复。")
+
             llm_logcontent = {
                 "request": {
                     "input": message,
                     "enhanced_message": enhanced_message,
-                    "chat_history": formatted_history
+                    "agent_type": settings.AGENT_TYPE
                 },
                 "response": output
             }
@@ -329,7 +434,7 @@ class ChatBIAgent(BaseAgent):
 
             return output
         except Exception as e:
-            logger.error(f"【错误】Agent执行失败: {str(e)}")
+            logger.error(f"【错误】Agent执行失败: {str(e)}", exc_info=True)
             return f"处理您的请求时发生错误: {str(e)}"
 
     def stream(self, message: str, chat_history: Optional[List] = None, **kwargs):
@@ -337,7 +442,7 @@ class ChatBIAgent(BaseAgent):
         流式调用Agent处理消息
         Args:
             message: 用户消息（可能包含#database.table）
-            chat_history: 对话历史
+            chat_history: 对话历史（tool_calling agent 支持，react agent 不支持）
             **kwargs: 其他参数（可包含table_context）
         Yields:
             str: Agent响应片段
@@ -350,16 +455,16 @@ class ChatBIAgent(BaseAgent):
         else:
             enhanced_message = message
 
-        # 格式化对话历史
-        formatted_history = []
-        if chat_history:
-            formatted_history = self.format_chat_history(chat_history[-2:])
-
         try:
-            result = self.agent_executor.invoke({
-                "input": enhanced_message,
-                "chat_history": formatted_history
-            })
+            # 根据 agent 类型构建输入
+            agent_input = {"input": enhanced_message}
+
+            # 如果是 tool_calling agent，支持 chat_history
+            if settings.AGENT_TYPE.lower() == "tool_calling" and chat_history:
+                formatted_history = self.format_chat_history(chat_history[-2:])
+                agent_input["chat_history"] = formatted_history
+
+            result = self.agent_executor.invoke(agent_input)
 
             response = result.get("output", "抱歉，我无法生成回复。")
 
@@ -374,6 +479,13 @@ class ChatBIAgent(BaseAgent):
     def get_info(self) -> Dict[str, Any]:
         """获取Agent信息，包含工具列表"""
         base_info = super().get_info()
+        base_info["agent_type"] = settings.AGENT_TYPE  # 当前使用的 agent 类型
+        base_info["agent_config"] = {
+            "type": settings.AGENT_TYPE,
+            "max_iterations": settings.AGENT_MAX_ITERATIONS,
+            "verbose": settings.AGENT_VERBOSE,
+            "handle_parsing_errors": settings.AGENT_HANDLE_PARSING_ERRORS
+        }
         base_info["tools"] = [tool.name for tool in self.tools]
         base_info["capabilities"] = [
             "任务拆解和编排",

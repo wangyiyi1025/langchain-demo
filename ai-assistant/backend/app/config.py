@@ -40,14 +40,16 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = "sk-dummy-key"  # 本地模型可能不需要真实的key
     OPENAI_BASE_URL: str = "http://localhost:11434/v1"  # 默认Ollama地址
     LLM_MODEL: str = "qwen2.5:latest"  # 模型名称
-    LLM_TEMPERATURE: float = 0.7  # 温度参数，控制输出随机性
+    LLM_TEMPERATURE: float = 0.1  # 温度参数，控制输出随机性（ReAct模式建议0.1-0.3）
     LLM_MAX_TOKENS: int = 2000  # 最大生成token数
     LLM_MAX_RETRIES: int = 2  # 失败重试次数
     LLM_PROVIDER: str = "ollama"  # 提供商标识，用于日志和调试
 
     # Agent配置
-    AGENT_MAX_ITERATIONS: int = 5
-    AGENT_VERBOSE: bool = True
+    AGENT_TYPE: str = "react"  # Agent类型: "react" 或 "tool_calling"
+    AGENT_MAX_ITERATIONS: int = 5  # Agent最大迭代次数
+    AGENT_VERBOSE: bool = True  # 是否显示详细日志
+    AGENT_HANDLE_PARSING_ERRORS: bool = True  # 是否处理解析错误
 
     # 日志配置
     LOG_LEVEL: str = "INFO"
@@ -125,8 +127,10 @@ class Settings(BaseSettings):
         logger.info(f"  最大重试: {self.LLM_MAX_RETRIES}")
         logger.info("-" * 60)
         logger.info("Agent配置:")
+        logger.info(f"  Agent类型: {self.AGENT_TYPE}")
         logger.info(f"  最大迭代次数: {self.AGENT_MAX_ITERATIONS}")
         logger.info(f"  详细日志: {self.AGENT_VERBOSE}")
+        logger.info(f"  处理解析错误: {self.AGENT_HANDLE_PARSING_ERRORS}")
         logger.info("-" * 60)
         logger.info("数据库配置:")
         logger.info(f"  MySQL: {self.MYSQL_USER}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}")
