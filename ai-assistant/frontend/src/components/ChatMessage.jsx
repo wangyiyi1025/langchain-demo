@@ -56,10 +56,15 @@ function ChatMessage({ message }) {
     ))
   }
 
-  // 检查是否有分析详情（SQL、解释、图表建议、行数等）
+  // 检查是否有分析详情（SQL、解释、图表建议等 - 不包括仅有 row_count 的情况）
   const hasAnalysisDetails = () => {
     if (!jsonData) return false
-    return jsonData.sql || jsonData.sql_explanation || jsonData.chart_suggestion || jsonData.row_count !== undefined
+    // 如果只有 row_count 但是 scenario 是 table_schema 或 database_schema，不显示分析详情
+    if (jsonData.scenario === 'table_schema' || jsonData.scenario === 'database_schema') {
+      return false
+    }
+    // 其他情况，有 SQL 或解释或图表建议时才显示
+    return jsonData.sql || jsonData.sql_explanation || jsonData.chart_suggestion
   }
 
   // 渲染分析详情区域（可折叠）

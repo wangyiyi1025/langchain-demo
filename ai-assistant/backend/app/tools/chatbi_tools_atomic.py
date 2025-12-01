@@ -623,7 +623,8 @@ def nl_to_sql(question: str, schema_info: str, context: str = None) -> str:
         sql = sql.strip()
 
         # 生成SQL解释（中文）
-        explanation = ""
+        # 注意：这是一个额外的 LLM 调用，如果失败会降级到默认解释
+        explanation = f"基于问题「{question}」生成的SQL查询"
         try:
             explanation_prompt = ChatPromptTemplate.from_messages([
                 ("system", """你是一个SQL专家，擅长用中文解释SQL查询的逻辑。
@@ -663,10 +664,9 @@ SQL语句：
             })
 
             explanation = explanation_response.content.strip()
-            logger.debug(f"{log_prefix} SQL解释生成成功: {explanation}")
+            logger.info(f"{log_prefix} SQL解释生成成功")
         except Exception as e:
-            logger.warning(f"{log_prefix} SQL解释生成失败，使用默认解释: {str(e)}")
-            explanation = f"基于问题「{question}」生成的SQL查询"
+            logger.warning(f"{log_prefix} SQL解释生成失败，使用默认解释: {str(e)}", exc_info=True)
 
         result = {
             "success": True,
