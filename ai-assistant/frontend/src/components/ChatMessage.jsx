@@ -140,7 +140,7 @@ function ChatMessage({ message }) {
     if (jsonData.analysis && jsonData.analysis.insights && Array.isArray(jsonData.analysis.insights) && jsonData.analysis.insights.length > 0) {
       details.push(
         <div key="insights" className="analysis-detail-item">
-          <strong>💡 关键洞察：</strong>
+          <strong>关键洞察：</strong>
           <ul className="insight-list">
             {jsonData.analysis.insights.map((insight, idx) => (
               <li key={idx}>{insight}</li>
@@ -155,7 +155,7 @@ function ChatMessage({ message }) {
       const { characteristics } = jsonData.analysis
       details.push(
         <div key="characteristics" className="analysis-detail-item">
-          <strong>📈 数据特征：</strong>
+          <strong>数据特征：</strong>
           <ul className="insight-list">
             {characteristics.total_records && (
               <li>总记录数：{characteristics.total_records}</li>
