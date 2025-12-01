@@ -15,15 +15,26 @@ function ChatMessage({ message }) {
       if (matches.length > 0) {
         // 提取最后一个 JSON 块
         const jsonStr = matches[matches.length - 1][1]
-        const parsed = JSON.parse(jsonStr)
+        try {
+          const parsed = JSON.parse(jsonStr)
 
-        // 移除 JSON 代码块，保留其他文本
-        const textOnly = content.replace(/```json\s*[\s\S]*?\s*```/g, '').trim()
+          // 移除 JSON 代码块，保留其他文本
+          const textOnly = content.replace(/```json\s*[\s\S]*?\s*```/g, '').trim()
 
-        return {
-          textContent: textOnly,
-          chartConfig: parsed.chart_config || null,
-          jsonData: parsed
+          return {
+            textContent: textOnly,
+            chartConfig: parsed.chart_config || null,
+            jsonData: parsed
+          }
+        } catch (parseError) {
+          console.error('JSON 解析失败:', parseError)
+          console.error('JSON 字符串:', jsonStr.substring(0, 500)) // 只打印前500个字符避免控制台过长
+          // 解析失败时，返回原始内容
+          return {
+            textContent: content,
+            chartConfig: null,
+            jsonData: null
+          }
         }
       }
 
@@ -35,7 +46,7 @@ function ChatMessage({ message }) {
         jsonData: parsed
       }
     } catch (e) {
-      // 不是 JSON 格式，返回原始内容
+      // 不是 JSON 格式，返回原始内容（这是正常情况，不需要打印错误）
       return {
         textContent: content,
         chartConfig: null,
@@ -65,6 +76,49 @@ function ChatMessage({ message }) {
     }
     // 其他情况，有 SQL 或解释或图表建议时才显示
     return jsonData.sql || jsonData.sql_explanation || jsonData.chart_suggestion
+  }
+
+  // 渲染数据洞察（来自 analyze_data 工具）
+  const renderDataInsights = () => {
+    if (!jsonData || !jsonData.insights) return null
+
+    const { insights, summary, characteristics } = jsonData
+
+    return (
+      <div className="data-insights">
+        {summary && (
+          <div className="insight-summary">
+            <strong>📊 数据摘要：</strong>
+            <p>{summary}</p>
+          </div>
+        )}
+
+        {insights && Array.isArray(insights) && insights.length > 0 && (
+          <div className="insight-items">
+            <strong>💡 关键洞察：</strong>
+            <ul>
+              {insights.map((insight, idx) => (
+                <li key={idx}>{insight}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {characteristics && Object.keys(characteristics).length > 0 && (
+          <div className="insight-characteristics">
+            <strong>📈 数据特征：</strong>
+            <ul>
+              {characteristics.total_records && (
+                <li>总记录数：{characteristics.total_records}</li>
+              )}
+              {characteristics.key_metrics && Object.entries(characteristics.key_metrics).map(([key, value]) => (
+                <li key={key}>{key}：{value}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    )
   }
 
   // 渲染分析详情区域（可折叠）
@@ -135,6 +189,7 @@ function ChatMessage({ message }) {
     <div className={`message ${role}`}>
       <div className="message-content">
         {textContent && formatContent(textContent)}
+        {renderDataInsights()}
         {renderAnalysisDetails()}
         {chartConfig && <ChartRenderer chartConfig={chartConfig} />}
       </div>

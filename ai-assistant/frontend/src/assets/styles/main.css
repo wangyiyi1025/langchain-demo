@@ -118,11 +118,13 @@ body {
 }
 
 .message-content {
-  max-width: 70%;
+  max-width: min(70%, 800px);
+  width: auto;
   padding: 12px 18px;
   border-radius: 18px;
   line-height: 1.6;
   word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .message.user .message-content {
@@ -189,6 +191,8 @@ body {
 /* 分析详情折叠区域样式 */
 .analysis-details-container {
   margin: 12px 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .analysis-details-toggle {
@@ -221,6 +225,9 @@ body {
   border-radius: 8px;
   border-left: 4px solid #667eea;
   animation: slideDown 0.3s ease-out;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
 }
 
 @keyframes slideDown {
@@ -275,6 +282,69 @@ body {
 .analysis-detail-item span {
   color: #555;
   font-size: 0.9em;
+}
+
+/* 数据洞察样式 */
+.data-insights {
+  margin: 16px 0;
+  padding: 16px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #f0f3f7 100%);
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.insight-summary {
+  margin-bottom: 16px;
+}
+
+.insight-summary strong {
+  color: #667eea;
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.95em;
+}
+
+.insight-summary p {
+  color: #333;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.insight-items {
+  margin-bottom: 16px;
+}
+
+.insight-items:last-child,
+.insight-characteristics:last-child {
+  margin-bottom: 0;
+}
+
+.insight-items strong,
+.insight-characteristics strong {
+  color: #667eea;
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.95em;
+}
+
+.insight-items ul,
+.insight-characteristics ul {
+  margin: 0;
+  padding-left: 24px;
+  list-style-type: disc;
+}
+
+.insight-items li,
+.insight-characteristics li {
+  color: #555;
+  line-height: 1.8;
+  margin-bottom: 6px;
+  font-size: 0.9em;
+}
+
+.insight-items li:last-child,
+.insight-characteristics li:last-child {
+  margin-bottom: 0;
 }
 
 /* 图表容器样式 */
