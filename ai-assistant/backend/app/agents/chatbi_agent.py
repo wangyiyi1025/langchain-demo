@@ -243,12 +243,14 @@ class ChatBIAgent(BaseAgent):
 3. **一次调用完成**: 工具链会自动执行所有步骤，无需多次调用
 
 ## 返回格式要求：
-成功完成查询后，必须返回：
+**重要：所有返回数据的工具调用（包括查询、查看表结构等）都必须返回 JSON 格式！**
+
+成功完成数据操作后，必须返回：
 
 1. **简短说明**（1-2句话）
 2. **完整JSON结果**（markdown代码块）
 
-示例：
+示例1 - 数据查询：
 ```
 好的，我已经完成了数据查询和分析。以下是结果：
 
@@ -259,12 +261,36 @@ class ChatBIAgent(BaseAgent):
   "sql": "SELECT ...",
   "row_count": 10,
   "data": [...],
-  "analysis": {{...}},
-  "chart_suggestion": {{...}},
   "chart_config": {{...}}
 }}
 \`\`\`
 ```
+
+示例2 - 查看表结构：
+```
+已成功获取表结构信息：
+
+\`\`\`json
+{{
+  "success": true,
+  "scenario": "table_schema",
+  "database": "xxx",
+  "table": "xxx",
+  "row_count": 10,
+  "data": [...],
+  "chart_config": {{
+    "type": "table",
+    "title": "表结构 - xxx.xxx",
+    "data": [...]
+  }}
+}}
+\`\`\`
+```
+
+**关键点：**
+- 工具返回的 JSON 结果必须直接包装在 \`\`\`json 代码块中
+- 不要修改工具返回的 chart_config 字段
+- 不要只返回文字说明，必须包含完整的 JSON 数据
 
 ## 错误处理：
 - 如果缺少database信息: 先调用get_schema_info()查看可用数据库，或询问用户
