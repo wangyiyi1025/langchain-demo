@@ -390,7 +390,7 @@ def get_llm():
 # ============================================================================
 
 @tool
-def get_schema_info(database: str, table: str = None) -> str:
+def get_schema_info(database: str, table: Optional[str] = None) -> str:
     """
     获取数据库表结构信息，以表格方式展示
 
@@ -505,7 +505,7 @@ def get_schema_info(database: str, table: str = None) -> str:
 # ============================================================================
 
 @tool
-def nl_to_sql(question: str, schema_info: str, context: str = None) -> str:
+def nl_to_sql(question: str, schema_info: str, context: Optional[str] = None) -> str:
     """
     将自然语言问题转换为SQL查询
 
@@ -889,7 +889,7 @@ def analyze_data(data: str, question: str) -> str:
 # ============================================================================
 
 @tool
-def suggest_chart(data: str, question: str, analysis: str = None) -> str:
+def suggest_chart(data: str, question: str, analysis: Optional[str] = None) -> str:
     """
     根据数据和问题推荐最合适的图表类型
 
