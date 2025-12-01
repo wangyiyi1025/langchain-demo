@@ -80,9 +80,12 @@ function ChatMessage({ message }) {
 
   // 渲染数据洞察（来自 analyze_data 工具）
   const renderDataInsights = () => {
-    if (!jsonData || !jsonData.insights) return null
+    if (!jsonData || !jsonData.analysis) return null
 
-    const { insights, summary, characteristics } = jsonData
+    const { insights, summary, characteristics } = jsonData.analysis
+
+    // 如果 analysis 对象为空或没有任何有效内容，则不渲染
+    if (!insights && !summary && !characteristics) return null
 
     return (
       <div className="data-insights">
