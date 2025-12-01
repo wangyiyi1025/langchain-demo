@@ -78,48 +78,13 @@ function ChatMessage({ message }) {
     return jsonData.sql || jsonData.sql_explanation || jsonData.chart_suggestion
   }
 
-  // 渲染数据洞察（来自 analyze_data 工具）
-  const renderDataInsights = () => {
-    if (!jsonData || !jsonData.analysis) return null
-
-    const { insights, summary, characteristics } = jsonData.analysis
-
-    // 如果 analysis 对象为空或没有任何有效内容，则不渲染
-    if (!insights && !summary && !characteristics) return null
+  // 渲染数据摘要（放在第一部分文本内容后面）
+  const renderDataSummary = () => {
+    if (!jsonData || !jsonData.analysis || !jsonData.analysis.summary) return null
 
     return (
-      <div className="data-insights">
-        {summary && (
-          <div className="insight-summary">
-            <strong>📊 数据摘要：</strong>
-            <p>{summary}</p>
-          </div>
-        )}
-
-        {insights && Array.isArray(insights) && insights.length > 0 && (
-          <div className="insight-items">
-            <strong>💡 关键洞察：</strong>
-            <ul>
-              {insights.map((insight, idx) => (
-                <li key={idx}>{insight}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {characteristics && Object.keys(characteristics).length > 0 && (
-          <div className="insight-characteristics">
-            <strong>📈 数据特征：</strong>
-            <ul>
-              {characteristics.total_records && (
-                <li>总记录数：{characteristics.total_records}</li>
-              )}
-              {characteristics.key_metrics && Object.entries(characteristics.key_metrics).map(([key, value]) => (
-                <li key={key}>{key}：{value}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+      <div className="data-summary">
+        <p>{jsonData.analysis.summary}</p>
       </div>
     )
   }
@@ -171,6 +136,38 @@ function ChatMessage({ message }) {
       )
     }
 
+    // 关键洞察（从 analysis 对象中获取）
+    if (jsonData.analysis && jsonData.analysis.insights && Array.isArray(jsonData.analysis.insights) && jsonData.analysis.insights.length > 0) {
+      details.push(
+        <div key="insights" className="analysis-detail-item">
+          <strong>💡 关键洞察：</strong>
+          <ul className="insight-list">
+            {jsonData.analysis.insights.map((insight, idx) => (
+              <li key={idx}>{insight}</li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+
+    // 数据特征（从 analysis 对象中获取）
+    if (jsonData.analysis && jsonData.analysis.characteristics && Object.keys(jsonData.analysis.characteristics).length > 0) {
+      const { characteristics } = jsonData.analysis
+      details.push(
+        <div key="characteristics" className="analysis-detail-item">
+          <strong>📈 数据特征：</strong>
+          <ul className="insight-list">
+            {characteristics.total_records && (
+              <li>总记录数：{characteristics.total_records}</li>
+            )}
+            {characteristics.key_metrics && Object.entries(characteristics.key_metrics).map(([key, value]) => (
+              <li key={key}>{key}：{value}</li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+
     return (
       <div className="analysis-details-container">
         <button
@@ -192,7 +189,7 @@ function ChatMessage({ message }) {
     <div className={`message ${role}`}>
       <div className="message-content">
         {textContent && formatContent(textContent)}
-        {renderDataInsights()}
+        {renderDataSummary()}
         {renderAnalysisDetails()}
         {chartConfig && <ChartRenderer chartConfig={chartConfig} />}
       </div>

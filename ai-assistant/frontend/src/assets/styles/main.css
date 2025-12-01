@@ -284,66 +284,34 @@ body {
   font-size: 0.9em;
 }
 
-/* 数据洞察样式 */
-.data-insights {
-  margin: 16px 0;
-  padding: 16px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #f0f3f7 100%);
-  border-radius: 8px;
-  border-left: 4px solid #667eea;
+/* 数据摘要样式（第一部分） */
+.data-summary {
+  margin: 12px 0;
+  padding: 0;
 }
 
-.insight-summary {
-  margin-bottom: 16px;
-}
-
-.insight-summary strong {
-  color: #667eea;
-  display: block;
-  margin-bottom: 8px;
-  font-size: 0.95em;
-}
-
-.insight-summary p {
+.data-summary p {
   color: #333;
   line-height: 1.6;
   margin: 0;
-}
-
-.insight-items {
-  margin-bottom: 16px;
-}
-
-.insight-items:last-child,
-.insight-characteristics:last-child {
-  margin-bottom: 0;
-}
-
-.insight-items strong,
-.insight-characteristics strong {
-  color: #667eea;
-  display: block;
-  margin-bottom: 8px;
   font-size: 0.95em;
 }
 
-.insight-items ul,
-.insight-characteristics ul {
-  margin: 0;
+/* 分析详情中的洞察列表样式 */
+.analysis-detail-item .insight-list {
+  margin: 8px 0 0 0;
   padding-left: 24px;
   list-style-type: disc;
 }
 
-.insight-items li,
-.insight-characteristics li {
+.analysis-detail-item .insight-list li {
   color: #555;
   line-height: 1.8;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-size: 0.9em;
 }
 
-.insight-items li:last-child,
-.insight-characteristics li:last-child {
+.analysis-detail-item .insight-list li:last-child {
   margin-bottom: 0;
 }
 
