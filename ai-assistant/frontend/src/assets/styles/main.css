@@ -118,11 +118,13 @@ body {
 }
 
 .message-content {
-  max-width: 70%;
+  max-width: min(70%, 800px);
+  width: auto;
   padding: 12px 18px;
   border-radius: 18px;
   line-height: 1.6;
   word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .message.user .message-content {
@@ -186,6 +188,133 @@ body {
   color: #667eea;
 }
 
+/* 分析详情折叠区域样式 */
+.analysis-details-container {
+  margin: 12px 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.analysis-details-toggle {
+  width: 100%;
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.analysis-details-toggle:hover {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: rgba(102, 126, 234, 0.5);
+  transform: translateY(-1px);
+}
+
+.analysis-details-content {
+  margin-top: 12px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+  animation: slideDown 0.3s ease-out;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.analysis-detail-item {
+  margin: 12px 0;
+}
+
+.analysis-detail-item:first-child {
+  margin-top: 0;
+}
+
+.analysis-detail-item:last-child {
+  margin-bottom: 0;
+}
+
+.analysis-detail-item strong {
+  color: #667eea;
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.95em;
+}
+
+.analysis-detail-item pre {
+  background: #2d2d2d;
+  color: #f8f8f2;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85em;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.sql-explanation {
+  color: #333;
+  line-height: 1.6;
+  font-size: 0.9em;
+  white-space: pre-line;
+}
+
+.analysis-detail-item span {
+  color: #555;
+  font-size: 0.9em;
+}
+
+/* 数据摘要样式（第一部分） */
+.data-summary {
+  margin: 12px 0;
+  padding: 0;
+}
+
+.data-summary p {
+  color: #333;
+  line-height: 1.6;
+  margin: 0;
+  font-size: 0.95em;
+}
+
+/* 分析详情中的洞察列表样式 */
+.analysis-detail-item .insight-list {
+  margin: 8px 0 0 0;
+  padding-left: 24px;
+  list-style-type: disc;
+}
+
+.analysis-detail-item .insight-list li {
+  color: #555;
+  line-height: 1.8;
+  margin-bottom: 8px;
+  font-size: 0.9em;
+}
+
+.analysis-detail-item .insight-list li:last-child {
+  margin-bottom: 0;
+}
+
 /* 图表容器样式 */
 .chart-container {
   margin: 16px 0;
@@ -199,12 +328,46 @@ body {
   background: #fafbfc;
 }
 
+/* 图表头部（标题 + 下载按钮） */
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
 .chart-title {
   font-size: 1.1em;
   font-weight: 600;
   color: #333;
-  margin-bottom: 16px;
-  text-align: center;
+  margin: 0;
+}
+
+/* 下载按钮样式 - 参考 ECharts 设计 */
+.download-btn {
+  background: transparent;
+  color: #666;
+  border: 1px solid transparent;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.2em;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.download-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #333;
+}
+
+.download-btn:active {
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .chart-empty {

@@ -1,13 +1,17 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, ScatterChart, Scatter,
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, Cell
 } from 'recharts'
+import * as XLSX from 'xlsx'
+import html2canvas from 'html2canvas'
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1', '#d084d0', '#ffb366']
 
 function ChartRenderer({ chartConfig }) {
+  const chartRef = useRef(null)
+
   if (!chartConfig || !chartConfig.type) {
     return null
   }
@@ -24,12 +28,51 @@ function ChartRenderer({ chartConfig }) {
     )
   }
 
+  // 下载 Excel 文件（用于表格）
+  const downloadExcel = () => {
+    try {
+      const ws = XLSX.utils.json_to_sheet(data)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1')
+      const fileName = `${title || '数据表格'}_${new Date().toISOString().split('T')[0]}.xlsx`
+      XLSX.writeFile(wb, fileName)
+    } catch (error) {
+      console.error('下载 Excel 失败:', error)
+      alert('下载失败，请重试')
+    }
+  }
+
+  // 下载图片（用于图表）
+  const downloadImage = async () => {
+    if (!chartRef.current) return
+
+    try {
+      const canvas = await html2canvas(chartRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2
+      })
+      const image = canvas.toDataURL('image/png')
+      const link = document.createElement('a')
+      link.href = image
+      link.download = `${title || '图表'}_${new Date().toISOString().split('T')[0]}.png`
+      link.click()
+    } catch (error) {
+      console.error('下载图片失败:', error)
+      alert('下载失败，请重试')
+    }
+  }
+
   // 渲染表格
   const renderTable = () => {
     const columns = Object.keys(data[0])
     return (
-      <div className="chart-table-container">
-        <h3 className="chart-title">{title || '数据表格'}</h3>
+      <div className="chart-table-container" ref={chartRef}>
+        <div className="chart-header">
+          <h3 className="chart-title">{title || '数据表格'}</h3>
+          <button className="download-btn" onClick={downloadExcel} title="下载 Excel">
+            ⬇️
+          </button>
+        </div>
         <div className="chart-table-wrapper">
           <table className="chart-table">
             <thead>
@@ -70,8 +113,13 @@ function ChartRenderer({ chartConfig }) {
     const yAxisFields = Array.isArray(y_axis) ? y_axis : [y_axis]
 
     return (
-      <div className="chart-container">
-        <h3 className="chart-title">{title || '柱状图'}</h3>
+      <div className="chart-container" ref={chartRef}>
+        <div className="chart-header">
+          <h3 className="chart-title">{title || '柱状图'}</h3>
+          <button className="download-btn" onClick={downloadImage} title="下载图片">
+            ⬇️
+          </button>
+        </div>
         <ResponsiveContainer width="100%" height={400}>
           <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -116,8 +164,13 @@ function ChartRenderer({ chartConfig }) {
     const yAxisFields = Array.isArray(y_axis) ? y_axis : [y_axis]
 
     return (
-      <div className="chart-container">
-        <h3 className="chart-title">{title || '折线图'}</h3>
+      <div className="chart-container" ref={chartRef}>
+        <div className="chart-header">
+          <h3 className="chart-title">{title || '折线图'}</h3>
+          <button className="download-btn" onClick={downloadImage} title="下载图片">
+            ⬇️
+          </button>
+        </div>
         <ResponsiveContainer width="100%" height={400}>
           <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -156,8 +209,13 @@ function ChartRenderer({ chartConfig }) {
     const valueKey = value_field || y_axis
 
     return (
-      <div className="chart-container">
-        <h3 className="chart-title">{title || '饼图'}</h3>
+      <div className="chart-container" ref={chartRef}>
+        <div className="chart-header">
+          <h3 className="chart-title">{title || '饼图'}</h3>
+          <button className="download-btn" onClick={downloadImage} title="下载图片">
+            ⬇️
+          </button>
+        </div>
         <ResponsiveContainer width="100%" height={400}>
           <PieChart>
             <Pie
@@ -183,8 +241,13 @@ function ChartRenderer({ chartConfig }) {
 
   // 渲染散点图
   const renderScatterChart = () => (
-    <div className="chart-container">
-      <h3 className="chart-title">{title || '散点图'}</h3>
+    <div className="chart-container" ref={chartRef}>
+      <div className="chart-header">
+        <h3 className="chart-title">{title || '散点图'}</h3>
+        <button className="download-btn" onClick={downloadImage} title="下载图片">
+          ⬇️
+        </button>
+      </div>
       <ResponsiveContainer width="100%" height={400}>
         <ScatterChart margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -219,8 +282,13 @@ function ChartRenderer({ chartConfig }) {
     const yAxisFields = Array.isArray(y_axis) ? y_axis : [y_axis]
 
     return (
-      <div className="chart-container">
-        <h3 className="chart-title">{title || '面积图'}</h3>
+      <div className="chart-container" ref={chartRef}>
+        <div className="chart-header">
+          <h3 className="chart-title">{title || '面积图'}</h3>
+          <button className="download-btn" onClick={downloadImage} title="下载图片">
+            ⬇️
+          </button>
+        </div>
         <ResponsiveContainer width="100%" height={400}>
           <AreaChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -270,8 +338,13 @@ function ChartRenderer({ chartConfig }) {
     }
 
     return (
-      <div className="chart-container">
-        <h3 className="chart-title">{title || '热力图'}</h3>
+      <div className="chart-container" ref={chartRef}>
+        <div className="chart-header">
+          <h3 className="chart-title">{title || '热力图'}</h3>
+          <button className="download-btn" onClick={downloadImage} title="下载图片">
+            ⬇️
+          </button>
+        </div>
         <div className="chart-table-wrapper">
           <table className="chart-table heatmap">
             <thead>

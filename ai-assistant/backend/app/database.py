@@ -188,7 +188,7 @@ class DatabaseConnection:
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     conversation_id INT NOT NULL COMMENT '对话ID',
                     role ENUM('user', 'assistant', 'system') NOT NULL COMMENT '消息角色',
-                    content TEXT NOT NULL COMMENT '消息内容',
+                    content MEDIUMTEXT NOT NULL COMMENT '消息内容',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
                     INDEX idx_conversation_id (conversation_id),

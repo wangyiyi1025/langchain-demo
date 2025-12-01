@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import ChartRenderer from './ChartRenderer'
 
 function ChatMessage({ message }) {
   const { role, content, timestamp } = message
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   // 尝试从内容中提取 JSON 数据（包括 chart_config）
   const { textContent, chartConfig, jsonData } = useMemo(() => {
@@ -14,15 +15,26 @@ function ChatMessage({ message }) {
       if (matches.length > 0) {
         // 提取最后一个 JSON 块
         const jsonStr = matches[matches.length - 1][1]
-        const parsed = JSON.parse(jsonStr)
+        try {
+          const parsed = JSON.parse(jsonStr)
 
-        // 移除 JSON 代码块，保留其他文本
-        const textOnly = content.replace(/```json\s*[\s\S]*?\s*```/g, '').trim()
+          // 移除 JSON 代码块，保留其他文本
+          const textOnly = content.replace(/```json\s*[\s\S]*?\s*```/g, '').trim()
 
-        return {
-          textContent: textOnly,
-          chartConfig: parsed.chart_config || null,
-          jsonData: parsed
+          return {
+            textContent: textOnly,
+            chartConfig: parsed.chart_config || null,
+            jsonData: parsed
+          }
+        } catch (parseError) {
+          console.error('JSON 解析失败:', parseError)
+          console.error('JSON 字符串:', jsonStr.substring(0, 500)) // 只打印前500个字符避免控制台过长
+          // 解析失败时，返回原始内容
+          return {
+            textContent: content,
+            chartConfig: null,
+            jsonData: null
+          }
         }
       }
 
@@ -34,7 +46,7 @@ function ChatMessage({ message }) {
         jsonData: parsed
       }
     } catch (e) {
-      // 不是 JSON 格式，返回原始内容
+      // 不是 JSON 格式，返回原始内容（这是正常情况，不需要打印错误）
       return {
         textContent: content,
         chartConfig: null,
@@ -55,46 +67,130 @@ function ChatMessage({ message }) {
     ))
   }
 
-  // 如果有 JSON 数据，格式化显示
-  const formatJsonInfo = () => {
-    if (!jsonData) return null
+  // 检查是否有分析详情（SQL、解释、图表建议等 - 不包括仅有 row_count 的情况）
+  const hasAnalysisDetails = () => {
+    if (!jsonData) return false
+    // 如果只有 row_count 但是 scenario 是 table_schema 或 database_schema，不显示分析详情
+    if (jsonData.scenario === 'table_schema' || jsonData.scenario === 'database_schema') {
+      return false
+    }
+    // 其他情况，有 SQL 或解释或图表建议时才显示
+    return jsonData.sql || jsonData.sql_explanation || jsonData.chart_suggestion
+  }
 
-    const info = []
+  // 渲染数据摘要（放在第一部分文本内容后面）
+  const renderDataSummary = () => {
+    if (!jsonData || !jsonData.analysis || !jsonData.analysis.summary) return null
 
+    return (
+      <div className="data-summary">
+        <p>{jsonData.analysis.summary}</p>
+      </div>
+    )
+  }
+
+  // 渲染分析详情区域（可折叠）
+  const renderAnalysisDetails = () => {
+    if (!hasAnalysisDetails()) return null
+
+    const details = []
+
+    // 返回数据行数（放在第一位）
+    if (jsonData.row_count !== undefined) {
+      details.push(
+        <div key="rowcount" className="analysis-detail-item">
+          <strong>数据行数：</strong>
+          <span>返回 {jsonData.row_count} 行数据</span>
+        </div>
+      )
+    }
+
+    // SQL 查询
     if (jsonData.sql) {
-      info.push(
-        <div key="sql" className="message-sql">
+      details.push(
+        <div key="sql" className="analysis-detail-item">
           <strong>SQL 查询：</strong>
           <pre>{jsonData.sql}</pre>
         </div>
       )
     }
 
-    if (jsonData.row_count !== undefined) {
-      info.push(
-        <div key="rowcount" className="message-info">
-          返回 {jsonData.row_count} 行数据
+    // SQL 解释
+    if (jsonData.sql_explanation) {
+      details.push(
+        <div key="explanation" className="analysis-detail-item">
+          <strong>查询说明：</strong>
+          <div className="sql-explanation">{jsonData.sql_explanation}</div>
         </div>
       )
     }
 
+    // 图表建议
     if (jsonData.chart_suggestion) {
       const suggestion = jsonData.chart_suggestion
-      info.push(
-        <div key="suggestion" className="message-suggestion">
-          <strong>图表建议：</strong>{suggestion.chart_type} - {suggestion.reason}
+      details.push(
+        <div key="suggestion" className="analysis-detail-item">
+          <strong>图表建议：</strong>
+          <span>{suggestion.chart_type} - {suggestion.reason}</span>
         </div>
       )
     }
 
-    return info.length > 0 ? <div className="message-json-info">{info}</div> : null
+    // 关键洞察（从 analysis 对象中获取）
+    if (jsonData.analysis && jsonData.analysis.insights && Array.isArray(jsonData.analysis.insights) && jsonData.analysis.insights.length > 0) {
+      details.push(
+        <div key="insights" className="analysis-detail-item">
+          <strong>关键洞察：</strong>
+          <ul className="insight-list">
+            {jsonData.analysis.insights.map((insight, idx) => (
+              <li key={idx}>{insight}</li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+
+    // 数据特征（从 analysis 对象中获取）
+    if (jsonData.analysis && jsonData.analysis.characteristics && Object.keys(jsonData.analysis.characteristics).length > 0) {
+      const { characteristics } = jsonData.analysis
+      details.push(
+        <div key="characteristics" className="analysis-detail-item">
+          <strong>数据特征：</strong>
+          <ul className="insight-list">
+            {characteristics.total_records && (
+              <li>总记录数：{characteristics.total_records}</li>
+            )}
+            {characteristics.key_metrics && Object.entries(characteristics.key_metrics).map(([key, value]) => (
+              <li key={key}>{key}：{value}</li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+
+    return (
+      <div className="analysis-details-container">
+        <button
+          className="analysis-details-toggle"
+          onClick={() => setIsDetailsOpen(!isDetailsOpen)}
+        >
+          {isDetailsOpen ? '▼' : '▶'} 分析详情
+        </button>
+        {isDetailsOpen && (
+          <div className="analysis-details-content">
+            {details}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
     <div className={`message ${role}`}>
       <div className="message-content">
         {textContent && formatContent(textContent)}
-        {formatJsonInfo()}
+        {renderDataSummary()}
+        {renderAnalysisDetails()}
         {chartConfig && <ChartRenderer chartConfig={chartConfig} />}
       </div>
       {timestamp && (

@@ -390,7 +390,7 @@ def get_llm():
 # ============================================================================
 
 @tool
-def get_schema_info(database: str, table: str = None) -> str:
+def get_schema_info(database: str, table: Optional[str] = None) -> str:
     """
     获取数据库表结构信息，以表格方式展示
 
@@ -505,7 +505,7 @@ def get_schema_info(database: str, table: str = None) -> str:
 # ============================================================================
 
 @tool
-def nl_to_sql(question: str, schema_info: str, context: str = None) -> str:
+def nl_to_sql(question: str, schema_info: str, context: Optional[str] = None) -> str:
     """
     将自然语言问题转换为SQL查询
 
@@ -622,10 +622,56 @@ def nl_to_sql(question: str, schema_info: str, context: str = None) -> str:
             sql = sql[:-3]
         sql = sql.strip()
 
+        # 生成SQL解释（中文）
+        # 注意：这是一个额外的 LLM 调用，如果失败会降级到默认解释
+        explanation = f"基于问题「{question}」生成的SQL查询"
+        try:
+            explanation_prompt = ChatPromptTemplate.from_messages([
+                ("system", """你是一个SQL专家，擅长用中文解释SQL查询的逻辑。
+
+请根据提供的SQL语句和表结构信息，用中文解释SQL的查询逻辑。
+
+重要要求：
+1. 用通俗易懂的中文解释SQL做了什么
+2. **在提到字段名和表名时，优先使用schema_info中的中文注释**
+   - 例如：如果schema中显示 `complaint_secondary_org_name varchar(255) // 被投诉人二级机构名称`
+   - 则在解释时说"被投诉人二级机构名称(complaint_secondary_org_name)"，而不是只说"complaint_secondary_org_name"
+3. 解释要简洁，分点说明，每个要点一句话
+4. 如果涉及时间对比（同比、环比），要明确说明对比的时间范围
+5. 如果涉及计算（增长率、聚合等），要说明计算逻辑
+
+输出格式：
+- 第一行：简要概述SQL的目的
+- 后续行：分点列出查询步骤（使用"-"或数字编号）
+
+只返回解释文本，不要有其他内容。"""),
+                ("human", """用户问题：{question}
+
+SQL语句：
+{sql}
+
+表结构信息：
+{schema_info}
+
+请用中文解释这个SQL查询的逻辑。""")
+            ])
+
+            explanation_chain = explanation_prompt | llm
+            explanation_response = explanation_chain.invoke({
+                "question": question,
+                "sql": sql,
+                "schema_info": schema_info
+            })
+
+            explanation = explanation_response.content.strip()
+            logger.info(f"{log_prefix} SQL解释生成成功")
+        except Exception as e:
+            logger.warning(f"{log_prefix} SQL解释生成失败，使用默认解释: {str(e)}", exc_info=True)
+
         result = {
             "success": True,
             "sql": sql,
-            "explanation": f"基于问题「{question}」生成的SQL查询",
+            "explanation": explanation,
             "has_time_analysis": needs_time_analysis
         }
 
@@ -843,7 +889,7 @@ def analyze_data(data: str, question: str) -> str:
 # ============================================================================
 
 @tool
-def suggest_chart(data: str, question: str, analysis: str = None) -> str:
+def suggest_chart(data: str, question: str, analysis: Optional[str] = None) -> str:
     """
     根据数据和问题推荐最合适的图表类型
 
