@@ -355,60 +355,6 @@ npm run build
 
 前端将在 `http://localhost:5173` 启动。
 
-### LLM 配置指南
-
-#### 方案一: 使用 Ollama (本地模型,推荐)
-
-1. **安装 Ollama**
-
-```bash
-# macOS / Linux
-curl -fsSL https://ollama.com/install.sh | sh
-
-# 启动 Ollama 服务
-ollama serve
-```
-
-2. **下载模型**
-
-```bash
-# 推荐使用 qwen2.5
-ollama pull qwen2.5:latest
-```
-
-3. **配置 .env**
-
-```env
-AGENT_TYPE=react
-OPENAI_API_KEY=sk-dummy-key
-OPENAI_BASE_URL=http://localhost:11434/v1
-LLM_MODEL=qwen2.5:latest
-LLM_PROVIDER=ollama
-LLM_TEMPERATURE=0.1
-```
-
-#### 方案二: 使用 OpenAI
-
-```env
-AGENT_TYPE=tool_calling
-OPENAI_API_KEY=your-openai-api-key
-OPENAI_BASE_URL=https://api.openai.com/v1
-LLM_MODEL=gpt-4
-LLM_PROVIDER=openai
-LLM_TEMPERATURE=0.5
-```
-
-#### 方案三: 使用阿里千问
-
-```env
-AGENT_TYPE=react  # 或 tool_calling(根据模型支持情况)
-OPENAI_API_KEY=your-dashscope-api-key
-OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-LLM_MODEL=qwen-plus
-LLM_PROVIDER=qwen
-LLM_TEMPERATURE=0.1
-```
-
 ## 使用说明
 
 ### 1. 注册登录
@@ -534,39 +480,6 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440  # Token 有效期(分钟)
 - Swagger UI: `http://localhost:8000/api/docs`
 - ReDoc: `http://localhost:8000/api/redoc`
 
-### 主要接口
-
-#### 认证接口
-
-- `POST /api/v1/auth/register` - 用户注册
-- `POST /api/v1/auth/login` - 用户登录
-- `POST /api/v1/auth/logout` - 用户登出
-
-#### 聊天接口
-
-- `POST /api/v1/chat/message` - 发送消息(同步)
-- `WebSocket /api/v1/chat/ws/{session_id}` - WebSocket 聊天(流式)
-- `GET /api/v1/chat/agents` - 获取可用 Agent 列表
-
-#### 会话管理
-
-- `GET /api/v1/conversations` - 获取会话列表
-- `POST /api/v1/conversations` - 创建新会话
-- `GET /api/v1/conversations/{id}` - 获取会话详情
-- `DELETE /api/v1/conversations/{id}` - 删除会话
-- `PUT /api/v1/conversations/{id}/table` - 更新会话表上下文
-
-#### 数据库查询
-
-- `GET /api/v1/database/databases` - 获取数据库列表
-- `GET /api/v1/database/tables` - 获取表列表
-- `GET /api/v1/database/tables/search` - 搜索表
-
-#### 系统接口
-
-- `GET /api/v1/system/health` - 健康检查
-- `GET /api/v1/system/info` - 系统信息
-
 ## 开发指南
 
 ### 添加新的 Agent
@@ -621,62 +534,6 @@ tail -f backend/logs/app.log
 1. **启用详细日志**: 设置 `AGENT_VERBOSE=True` 和 `LOG_LEVEL=DEBUG`
 2. **查看 LLM 请求**: 日志中会记录所有 LLM 调用的 prompt 和响应
 3. **WebSocket 调试**: 使用浏览器开发者工具的 Network 标签查看 WebSocket 消息
-
-## 常见问题
-
-### 1. WebSocket 连接失败
-
-- 检查后端服务是否正常运行
-- 确认前端配置的 WebSocket 地址正确
-- 检查是否有防火墙阻止连接
-- 确认 JWT Token 是否有效
-
-### 2. SQL 生成不准确
-
-- 确保数据表有完整的字段注释(中文说明)
-- 提供更详细的表上下文信息
-- 调整 LLM 的 temperature 参数(建议 0.1-0.3)
-- 检查 prompt 是否包含必要的业务规则
-
-### 3. 本地模型性能问题
-
-- 使用量化模型(如 qwen2.5:7b-q4)
-- 增加 GPU 内存分配
-- 减少 `LLM_MAX_TOKENS` 参数
-- 使用预定义工具链而非原子工具组合
-
-### 4. 时间对比分析结果错误
-
-- 确认问题中明确了时间范围
-- 检查数据库中的日期字段格式
-- 查看生成的 SQL 是否包含正确的时间条件
-- 参考 `chatbi_tool.py` 中的时间分析说明
-
-## 性能优化建议
-
-1. **使用预定义工具链**: 比原子工具组合快 30-50%
-2. **启用表上下文**: 减少 LLM 处理的 schema 信息量
-3. **限制查询结果行数**: 默认 LIMIT 100
-4. **使用索引**: 确保数据库表有合适的索引
-5. **缓存常用查询**: 考虑引入 Redis 缓存层
-
-## 路线图
-
-- [ ] 支持更多图表类型(雷达图、瀑布图等)
-- [ ] 多表关联查询支持
-- [ ] 自定义 SQL 模板
-- [ ] 报表定时生成和推送
-- [ ] 数据权限控制
-- [ ] 导出 Excel/PDF 报告
-- [ ] 多语言支持
-
-## 贡献指南
-
-欢迎提交 Issue 和 Pull Request!
-
-## 许可证
-
-MIT License
 
 ## 联系方式
 
