@@ -242,82 +242,27 @@ class ChatBIAgent(BaseAgent):
 2. **优先使用工具链**: 除非特殊情况，否则使用预定义链
 3. **一次调用完成**: 工具链会自动执行所有步骤，无需多次调用
 
-## 返回格式要求：
-**🚨 重要：所有返回数据的工具调用（包括查询、查看表结构等）都必须返回 JSON 格式！🚨**
+## 📋 返回格式（简单规则）：
 
-### ✅ 正确做法：直接返回工具的 JSON 结果
+**当工具返回 JSON 数据时，你必须这样做：**
 
-成功完成数据操作后，必须按以下格式返回：
+1. 写一句简短说明
+2. 直接复制工具返回的 JSON，用 \`\`\`json 包裹
 
-1. **简短说明**（1-2句话）
-2. **完整JSON结果**（使用 ```json 代码块）
-
-示例1 - 数据查询：
+**示例：**
 ```
-好的，我已经完成了数据查询。以下是结果：
+已完成查询。以下是结果：
 
 \`\`\`json
-{{
-  "success": true,
-  "question": "用户的原始问题",
-  "sql": "SELECT ...",
-  "row_count": 10,
-  "data": [...],
-  "chart_config": {{...}}
-}}
+[工具返回的完整 JSON，直接复制粘贴，不要修改]
 \`\`\`
 ```
 
-示例2 - 查看表结构：
-```
-已成功获取表结构信息：
-
-\`\`\`json
-{{
-  "success": true,
-  "scenario": "table_schema",
-  "database": "xxx",
-  "table": "xxx",
-  "row_count": 10,
-  "data": [...],
-  "chart_config": {{
-    "type": "table",
-    "title": "表结构 - xxx.xxx",
-    "data": [...]
-  }}
-}}
-\`\`\`
-```
-
-### ❌ 错误做法：不要做这些事情
-
-**绝对禁止：**
-1. ❌ **不要解析 JSON 并生成 Markdown 表格** - 前端会自动渲染
-2. ❌ **不要修改工具返回的任何字段** - 特别是 chart_config
-3. ❌ **不要只返回文字说明** - 必须包含完整的 JSON 数据
-4. ❌ **不要尝试"美化"输出** - 直接返回 JSON 即可
-
-错误示例（绝对不要这样做）：
-```
-好的，根据您的要求，我展示了数据。以下是查询结果：
-
-| id | name | age |
-|----|------|-----|
-| 1  | 张三  | 25  |
-| 2  | 李四  | 30  |
-
-如果您需要进一步的分析...
-```
-
-**为什么不要生成表格？**
-- 前端已经实现了专门的数据渲染组件
-- chart_config 字段会自动驱动可视化展示
-- 手动生成表格会破坏数据结构
-
-**关键点：**
-- 工具返回的 JSON 结果必须**原封不动**地包装在 \`\`\`json 代码块中
-- 不要解析、不要修改、不要美化，直接返回即可
-- 前端会根据 chart_config 自动选择合适的展示方式（表格/图表）
+**重要：**
+- ✅ 直接复制工具的 JSON 输出
+- ❌ 不要生成表格
+- ❌ 不要修改 JSON 内容
+- ❌ 不要解析数据
 
 ## 错误处理：
 - 如果缺少database信息: 先调用get_schema_info()查看可用数据库，或询问用户
@@ -493,6 +438,77 @@ Thought:{agent_scratchpad}"""
 
         return message, None, None
 
+    def _post_process_output(self, output: str, intermediate_steps: List = None) -> str:
+        """
+        后处理 Agent 输出，确保返回正确的 JSON 格式
+
+        问题：本地小模型（如 qwen2.5:7b 量化版）难以遵循复杂的格式指令，
+             经常会解析 JSON 并生成 Markdown 表格
+
+        解决：从工具的原始返回值中提取 JSON，强制返回正确格式
+
+        Args:
+            output: Agent 的最终输出
+            intermediate_steps: Agent 执行的中间步骤（包含工具调用）
+
+        Returns:
+            处理后的输出
+        """
+        import re
+        import json
+
+        log_prefix = "[chatbi_agent.py::ChatBIAgent::_post_process_output]"
+
+        # 1. 如果已经包含 JSON 代码块，直接返回
+        if "```json" in output:
+            logger.debug(f"{log_prefix} 输出已包含 JSON 代码块，无需处理")
+            return output
+
+        # 2. 检查是否包含 Markdown 表格（说明模型自己解析了数据）
+        has_table = bool(re.search(r'\|.*\|.*\|', output))
+
+        if not has_table:
+            # 如果既没有 JSON 也没有表格，可能是纯文本回复（正常情况）
+            logger.debug(f"{log_prefix} 输出为纯文本，无需处理")
+            return output
+
+        # 3. 检测到表格，但缺少 JSON 代码块 - 尝试从工具返回值中提取
+        logger.warning(f"{log_prefix} 检测到 Markdown 表格，但缺少 JSON 代码块，尝试从工具返回值中提取")
+
+        if not intermediate_steps:
+            logger.warning(f"{log_prefix} 无中间步骤信息，无法提取工具返回值")
+            return output + "\n\n⚠️ 检测到格式问题，请使用更强大的模型或切换回阿里云千问"
+
+        # 4. 从中间步骤中提取工具返回的 JSON
+        try:
+            # intermediate_steps 格式: [(AgentAction, observation), ...]
+            for action, observation in intermediate_steps:
+                tool_name = action.tool if hasattr(action, 'tool') else None
+
+                # 只处理 chatbi 相关工具的返回值
+                if tool_name and 'chatbi' in tool_name.lower():
+                    logger.info(f"{log_prefix} 找到工具调用: {tool_name}")
+
+                    # observation 是工具的返回值（字符串形式的 JSON）
+                    try:
+                        # 尝试解析 JSON
+                        json_data = json.loads(observation)
+
+                        # 构建标准的返回格式
+                        return f"好的，已完成数据查询。以下是结果：\n\n```json\n{json.dumps(json_data, ensure_ascii=False, indent=2)}\n```"
+
+                    except json.JSONDecodeError:
+                        logger.warning(f"{log_prefix} 工具返回值不是有效的 JSON: {observation[:100]}")
+                        continue
+
+            # 如果没有找到有效的工具返回值
+            logger.warning(f"{log_prefix} 未找到有效的工具返回值")
+            return output + "\n\n⚠️ 检测到格式问题，请使用更强大的模型或切换回阿里云千问"
+
+        except Exception as e:
+            logger.error(f"{log_prefix} 提取工具返回值时出错: {str(e)}", exc_info=True)
+            return output
+
     def invoke(self, message: str, chat_history: Optional[List] = None, **kwargs) -> str:
         """
         同步调用Agent处理消息
@@ -525,6 +541,10 @@ Thought:{agent_scratchpad}"""
 
             result = self.agent_executor.invoke(agent_input)
             output = result.get("output", "抱歉，我无法生成回复。")
+            intermediate_steps = result.get("intermediate_steps", [])
+
+            # 🔧 后处理：确保格式正确（从工具返回值中提取 JSON）
+            output = self._post_process_output(output, intermediate_steps)
 
             llm_logcontent = {
                 "request": {
