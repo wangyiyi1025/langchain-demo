@@ -243,16 +243,18 @@ class ChatBIAgent(BaseAgent):
 3. **一次调用完成**: 工具链会自动执行所有步骤，无需多次调用
 
 ## 返回格式要求：
-**重要：所有返回数据的工具调用（包括查询、查看表结构等）都必须返回 JSON 格式！**
+**🚨 重要：所有返回数据的工具调用（包括查询、查看表结构等）都必须返回 JSON 格式！🚨**
 
-成功完成数据操作后，必须返回：
+### ✅ 正确做法：直接返回工具的 JSON 结果
+
+成功完成数据操作后，必须按以下格式返回：
 
 1. **简短说明**（1-2句话）
-2. **完整JSON结果**（markdown代码块）
+2. **完整JSON结果**（使用 ```json 代码块）
 
 示例1 - 数据查询：
 ```
-好的，我已经完成了数据查询和分析。以下是结果：
+好的，我已经完成了数据查询。以下是结果：
 
 \`\`\`json
 {{
@@ -287,10 +289,35 @@ class ChatBIAgent(BaseAgent):
 \`\`\`
 ```
 
+### ❌ 错误做法：不要做这些事情
+
+**绝对禁止：**
+1. ❌ **不要解析 JSON 并生成 Markdown 表格** - 前端会自动渲染
+2. ❌ **不要修改工具返回的任何字段** - 特别是 chart_config
+3. ❌ **不要只返回文字说明** - 必须包含完整的 JSON 数据
+4. ❌ **不要尝试"美化"输出** - 直接返回 JSON 即可
+
+错误示例（绝对不要这样做）：
+```
+好的，根据您的要求，我展示了数据。以下是查询结果：
+
+| id | name | age |
+|----|------|-----|
+| 1  | 张三  | 25  |
+| 2  | 李四  | 30  |
+
+如果您需要进一步的分析...
+```
+
+**为什么不要生成表格？**
+- 前端已经实现了专门的数据渲染组件
+- chart_config 字段会自动驱动可视化展示
+- 手动生成表格会破坏数据结构
+
 **关键点：**
-- 工具返回的 JSON 结果必须直接包装在 \`\`\`json 代码块中
-- 不要修改工具返回的 chart_config 字段
-- 不要只返回文字说明，必须包含完整的 JSON 数据
+- 工具返回的 JSON 结果必须**原封不动**地包装在 \`\`\`json 代码块中
+- 不要解析、不要修改、不要美化，直接返回即可
+- 前端会根据 chart_config 自动选择合适的展示方式（表格/图表）
 
 ## 错误处理：
 - 如果缺少database信息: 先调用get_schema_info()查看可用数据库，或询问用户
@@ -332,7 +359,7 @@ Observation: [工具返回结果]
 
 **第二次输出（你输出）：**
 Thought: [分析结果]
-Final Answer: [最终答案]
+Final Answer: [最终答案 - 必须包含 JSON 代码块]
 
 ## ⚠️ 重要：分步输出
 
@@ -348,7 +375,42 @@ Final Answer: [最终答案]
 - 查询+分析 → chatbi_query_with_analysis_chain
 - 查询+可视化 → chatbi_query_with_chart_chain
 
-## 📚 正确示例
+## 📊 Final Answer 格式要求（重要！）
+
+**当工具返回数据时，Final Answer 必须包含：**
+1. 简短说明（1-2句话）
+2. 完整的 JSON 代码块（使用 ```json）
+
+**✅ 正确示例：**
+```
+Final Answer: 已成功查询数据，以下是结果：
+
+\`\`\`json
+{{
+  "success": true,
+  "question": "展示1条样例数据",
+  "sql": "SELECT ...",
+  "data": [...],
+  "chart_config": {{...}}
+}}
+\`\`\`
+```
+
+**❌ 错误示例（绝对不要这样）：**
+```
+Final Answer: 查询结果如下表：
+
+| id | name | age |
+|----|------|-----|
+| 1  | 张三  | 25  |
+```
+
+**为什么？**
+- 前端会自动渲染 JSON 数据
+- 手动生成表格会破坏数据结构
+- chart_config 字段会自动驱动可视化
+
+## 📚 完整示例
 
 **用户问题：** #chatbi_data.salary_tracking 查看表结构
 
@@ -358,8 +420,19 @@ Action: get_schema_info
 Action Input: {{"database": "chatbi_data", "table": "salary_tracking"}}
 
 **系统自动添加 Observation 后，你的第二次输出：**
-Thought: 已获取表结构信息，现在给出最终答案
-Final Answer: salary_tracking 表包含以下字段：id、employee_id、base_salary...
+Thought: 已获取表结构信息，现在以 JSON 格式返回结果
+Final Answer: 已成功获取表结构信息：
+
+\`\`\`json
+{{
+  "success": true,
+  "scenario": "table_schema",
+  "database": "chatbi_data",
+  "table": "salary_tracking",
+  "data": [...],
+  "chart_config": {{...}}
+}}
+\`\`\`
 
 ## ❌ 错误示例（绝对不要这样）
 
@@ -379,6 +452,11 @@ Action: get_schema_info
 Action Input: {{"database": "chatbi_data"}}
 Observation: {{...}}
 Final Answer: 表结构如下...
+
+错误4 - Final Answer 生成表格：
+Final Answer: 查询结果：
+| id | name |
+|----|------|
 
 ✅ 正确格式：
 Action Input: {{"database": "chatbi_data", "table": "salary_tracking"}}
