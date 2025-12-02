@@ -591,6 +591,10 @@ Thought:{agent_scratchpad}"""
             result = self.agent_executor.invoke(agent_input)
 
             response = result.get("output", "抱歉，我无法生成回复。")
+            intermediate_steps = result.get("intermediate_steps", [])
+
+            # 🔧 后处理：确保格式正确（从工具返回值中提取 JSON）
+            response = self._post_process_output(response, intermediate_steps)
 
             # 模拟流式输出
             chunk_size = 5
