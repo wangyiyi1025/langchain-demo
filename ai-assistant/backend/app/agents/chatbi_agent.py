@@ -29,6 +29,7 @@ from app.tools.chatbi_chains import (
 )
 from app.tools.time_tool import get_current_time, get_date_info
 from app.config import settings
+from app.callbacks.step_callback import StepCallbackHandler
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -501,6 +502,62 @@ Thought:{agent_scratchpad}"""
 
         except Exception as e:
             yield f"处理您的请求时发生错误: {str(e)}"
+
+    def invoke_with_steps(self, message: str, chat_history: Optional[List] = None, **kwargs) -> tuple:
+        """
+        同步调用Agent处理消息，并返回执行步骤
+        Args:
+            message: 用户消息（可能包含#database.table）
+            chat_history: 对话历史（tool_calling agent 支持，react agent 不支持）
+            **kwargs: 其他参数（可包含table_context）
+        Returns:
+            tuple: (响应文本, 执行步骤列表)
+        """
+        log_prefix = "[chatbi_agent.py::ChatBIAgent::invoke_with_steps]"
+
+        # 创建步骤回调处理器
+        step_callback = StepCallbackHandler()
+
+        # 从kwargs中获取表上下文，或从消息中提取
+        table_context = kwargs.get('table_context')
+
+        if table_context:
+            # 如果提供了表上下文，在消息前添加
+            enhanced_message = f"#{table_context['database']}.{table_context['table']} {message}"
+        else:
+            enhanced_message = message
+
+        try:
+            # 根据 agent 类型构建输入
+            agent_input = {"input": enhanced_message}
+
+            # 如果是 tool_calling agent，支持 chat_history
+            if settings.AGENT_TYPE.lower() == "tool_calling" and chat_history:
+                formatted_history = self.format_chat_history(chat_history[-2:])  # 只保留最近2条
+                agent_input["chat_history"] = formatted_history
+
+            # 使用回调处理器执行agent
+            result = self.agent_executor.invoke(agent_input, {"callbacks": [step_callback]})
+            output = result.get("output", "抱歉，我无法生成回复。")
+
+            # 获取执行步骤
+            steps = step_callback.get_steps()
+
+            llm_logcontent = {
+                "request": {
+                    "input": message,
+                    "enhanced_message": enhanced_message,
+                    "agent_type": settings.AGENT_TYPE
+                },
+                "response": output,
+                "steps_count": len(steps)
+            }
+            logger.info(f"{log_prefix} 【LLM请求】:{llm_logcontent['request']}，【LLM响应】:{llm_logcontent['response']}，【执行步骤数】:{llm_logcontent['steps_count']}")
+
+            return output, steps
+        except Exception as e:
+            logger.error(f"【错误】Agent执行失败: {str(e)}", exc_info=True)
+            return f"处理您的请求时发生错误: {str(e)}", []
 
     def get_info(self) -> Dict[str, Any]:
         """获取Agent信息，包含工具列表"""

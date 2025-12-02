@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   createWebSocket,
+  createWebSocketWithSteps,
   getConversation,
   addMessage,
   updateConversationTable,
@@ -18,6 +19,7 @@ import ChatInput from '../components/ChatInput';
 import TypingIndicator from '../components/TypingIndicator';
 import TableSelector from '../components/TableSelector';
 import ContextBar from '../components/ContextBar';
+import AgentSteps from '../components/AgentSteps';
 import '../assets/styles/main.css';
 
 function ChatPage() {
@@ -36,6 +38,7 @@ function ChatPage() {
   const [isConnected, setIsConnected] = useState(false);
   const [selectedTable, setSelectedTable] = useState(null);
   const [currentConversationId, setCurrentConversationId] = useState(null);
+  const [currentSteps, setCurrentSteps] = useState([]);  // 存储当前消息的执行步骤
   const messagesEndRef = useRef(null);
 
   // 使用ref保存最新的conversationId，避免WebSocket闭包陷阱
@@ -69,10 +72,11 @@ function ChatPage() {
 
   const connectWebSocket = () => {
     try {
-      const websocket = createWebSocket(sessionId);
+      // 使用带步骤可见性的WebSocket连接
+      const websocket = createWebSocketWithSteps(sessionId);
 
       websocket.onopen = () => {
-        console.log('✅ WebSocket连接成功');
+        console.log('✅ WebSocket连接成功（带步骤可见性）');
         setWs(websocket);
         setIsConnected(true);
       };
@@ -109,6 +113,24 @@ function ChatPage() {
   const handleWebSocketMessage = async (data) => {
     if (data.type === 'start') {
       setIsTyping(true);
+      // 清空上次的步骤
+      setCurrentSteps([]);
+    } else if (data.type === 'step') {
+      // 处理步骤消息
+      const stepData = data.data;
+      setCurrentSteps(prev => {
+        // 查找是否已存在该步骤
+        const existingIndex = prev.findIndex(s => s.step_number === stepData.step_number);
+        if (existingIndex >= 0) {
+          // 更新现有步骤
+          const updated = [...prev];
+          updated[existingIndex] = stepData;
+          return updated;
+        } else {
+          // 添加新步骤
+          return [...prev, stepData];
+        }
+      });
     } else if (data.type === 'stream') {
       setMessages(prev => {
         const lastMessage = prev[prev.length - 1];
@@ -128,7 +150,8 @@ function ChatPage() {
             role: 'assistant',
             content: data.content,
             timestamp: new Date(),
-            isStreaming: true
+            isStreaming: true,
+            steps: currentSteps  // 附加步骤信息
           };
           // 保存到ref供后续保存到数据库使用
           lastAssistantMessageRef.current = newMessage;
@@ -141,13 +164,13 @@ function ChatPage() {
     } else if (data.type === 'end') {
       setIsTyping(false);
 
-      // 标记流式传输结束
+      // 标记流式传输结束，并附加完整的步骤信息
       setMessages(prev => {
         const lastMessage = prev[prev.length - 1];
         if (lastMessage && lastMessage.isStreaming) {
           return [
             ...prev.slice(0, -1),
-            { ...lastMessage, isStreaming: false }
+            { ...lastMessage, isStreaming: false, steps: currentSteps }
           ];
         }
         return prev;
@@ -172,6 +195,7 @@ function ChatPage() {
       }
     } else if (data.type === 'error') {
       setIsTyping(false);
+      setCurrentSteps([]);  // 清空步骤
       setMessages(prev => [
         ...prev,
         {
@@ -372,6 +396,11 @@ function ChatPage() {
           {messages.map((message, index) => (
             <ChatMessage key={index} message={message} />
           ))}
+          {isTyping && currentSteps.length > 0 && (
+            <div style={{ marginBottom: '10px' }}>
+              <AgentSteps steps={currentSteps} />
+            </div>
+          )}
           {isTyping && <TypingIndicator />}
           <div ref={messagesEndRef} />
         </div>

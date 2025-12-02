@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react'
 import ChartRenderer from './ChartRenderer'
+import AgentSteps from './AgentSteps'
 
 function ChatMessage({ message }) {
-  const { role, content, timestamp } = message
+  const { role, content, timestamp, steps } = message
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   // 尝试从内容中提取 JSON 数据（包括 chart_config）
@@ -189,6 +190,7 @@ function ChatMessage({ message }) {
     <div className={`message ${role}`}>
       <div className="message-content">
         {textContent && formatContent(textContent)}
+        {steps && steps.length > 0 && <AgentSteps steps={steps} />}
         {renderDataSummary()}
         {renderAnalysisDetails()}
         {chartConfig && <ChartRenderer chartConfig={chartConfig} />}

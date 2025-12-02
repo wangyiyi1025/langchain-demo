@@ -168,6 +168,95 @@ class ConversationService:
         except Exception as e:
             error_msg = f"处理请求时发生错误: {str(e)}"
             yield error_msg
+
+    async def chat_stream_with_steps(
+        self,
+        session_id: str,
+        message: str,
+        agent_type: str = "chat",
+        table_context: Optional[Dict] = None,
+        step_callback = None
+    ):
+        """
+        流式对话（带步骤可见性）
+        Args:
+            session_id: 会话ID
+            message: 用户消息
+            agent_type: Agent类型
+            table_context: 表上下文
+            step_callback: 步骤回调函数，用于实时发送步骤信息
+        Yields:
+            dict: 包含类型和内容的消息字典
+                - {"type": "step", "data": {...}}  # 步骤信息
+                - {"type": "chunk", "data": "..."}  # 响应片段
+                - {"type": "error", "data": "..."}  # 错误信息
+        """
+        import asyncio
+        import json
+
+        # 获取指定的Agent
+        agent = agent_manager.get_agent(agent_type)
+        if not agent:
+            yield {"type": "error", "data": f"错误: 未找到类型为 '{agent_type}' 的Agent"}
+            return
+
+        # 检查agent是否支持步骤可见性
+        if not hasattr(agent, 'invoke_with_steps'):
+            yield {"type": "error", "data": f"Agent '{agent_type}' 不支持步骤可见性功能"}
+            return
+
+        history = self.get_or_create_conversation(session_id)
+
+        # 转换历史消息格式为字典列表
+        history_dicts = []
+        for msg in history:
+            if isinstance(msg, HumanMessage):
+                history_dicts.append({"role": "user", "content": msg.content})
+            elif isinstance(msg, AIMessage):
+                history_dicts.append({"role": "assistant", "content": msg.content})
+
+        try:
+            # 在后台线程中执行Agent的invoke_with_steps方法
+            def run_with_steps():
+                return agent.invoke_with_steps(message, history_dicts, table_context=table_context)
+
+            # 使用asyncio.to_thread在后台执行
+            response, steps = await asyncio.to_thread(run_with_steps)
+
+            # 先发送所有步骤信息
+            for step in steps:
+                step_msg = {
+                    "type": "step",
+                    "data": {
+                        "step_number": step.get("step_number"),
+                        "tool_name": step.get("tool_name"),
+                        "status": step.get("status"),
+                        "input": step.get("input", ""),
+                        "output_preview": step.get("output_preview", ""),
+                        "duration_ms": step.get("duration_ms", 0),
+                        "error": step.get("error")
+                    }
+                }
+                yield step_msg
+                # 如果提供了回调函数，也调用它
+                if step_callback:
+                    await step_callback(step_msg)
+                await asyncio.sleep(0.05)  # 给前端一点时间处理
+
+            # 保存到历史
+            self.add_message(session_id, "user", message)
+            self.add_message(session_id, "assistant", response)
+
+            # 流式输出最终响应
+            chunk_size = 5
+            for i in range(0, len(response), chunk_size):
+                chunk = response[i:i + chunk_size]
+                yield {"type": "chunk", "data": chunk}
+                await asyncio.sleep(0.03)  # 控制速度
+
+        except Exception as e:
+            error_msg = f"处理请求时发生错误: {str(e)}"
+            yield {"type": "error", "data": error_msg}
     
     def chat(
         self,

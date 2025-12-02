@@ -255,4 +255,13 @@ export const createWebSocket = (sessionId) => {
   return new WebSocket(`${wsUrl}/api/v1/chat/ws/${sessionId}?token=${token}`);
 };
 
+/**
+ * 创建带步骤可见性的WebSocket连接
+ */
+export const createWebSocketWithSteps = (sessionId) => {
+  const token = localStorage.getItem('access_token');
+  const wsUrl = API_BASE_URL.replace('http', 'ws').replace('/api/v1', '');
+  return new WebSocket(`${wsUrl}/api/v1/chat/ws-with-steps/${sessionId}?token=${token}`);
+};
+
 export default api;
