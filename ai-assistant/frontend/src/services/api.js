@@ -149,9 +149,12 @@ export const addMessage = (conversationId, messageData) => {
 
 /**
  * 发送消息（同步）
+ * 设置较长的超时时间，因为 ChatBI Agent 可能需要多次 LLM 调用和数据库查询
  */
 export const sendMessage = (data) => {
-  return api.post('/chat/message', data);
+  return api.post('/chat/message', data, {
+    timeout: 120000  // 120秒超时（ChatBI Agent 可能需要较长处理时间）
+  });
 };
 
 /**
