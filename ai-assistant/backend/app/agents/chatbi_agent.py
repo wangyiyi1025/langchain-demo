@@ -4,10 +4,14 @@ ChatBI数据分析Agent - 专门用于数据库查询和分析
 import os
 import sys
 import logging
+import json
 from typing import List, Optional, Dict, Any
 from langchain_openai import ChatOpenAI
 from langchain.agents import create_react_agent, create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.messages import BaseMessage
+from langchain_core.outputs import LLMResult
 
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -33,6 +37,100 @@ from app.config import settings
 # 配置日志
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+
+class DetailedLoggingCallback(BaseCallbackHandler):
+    """详细的回调处理器，用于记录Agent执行的每一步"""
+
+    def __init__(self, log_prefix: str = ""):
+        self.log_prefix = log_prefix
+        self.llm_call_count = 0
+        self.tool_call_count = 0
+
+    def on_llm_start(self, serialized: Dict[str, Any], prompts: List[str], **kwargs) -> None:
+        """LLM开始调用时"""
+        self.llm_call_count += 1
+        logger.info(f"{self.log_prefix} ########## LLM调用 #{self.llm_call_count} 开始 ##########")
+
+        # 打印提示词（可能很长，所以截断）
+        for idx, prompt in enumerate(prompts, 1):
+            if len(prompt) > 500:
+                logger.info(f"{self.log_prefix} 【提示词 {idx}】: {prompt[:500]}... (总长度: {len(prompt)} 字符)")
+            else:
+                logger.info(f"{self.log_prefix} 【提示词 {idx}】: {prompt}")
+
+    def on_chat_model_start(self, serialized: Dict[str, Any], messages: List[List[BaseMessage]], **kwargs) -> None:
+        """ChatModel开始调用时（tool_calling模式）"""
+        self.llm_call_count += 1
+        logger.info(f"{self.log_prefix} ########## LLM调用 #{self.llm_call_count} 开始 (ChatModel) ##########")
+
+        # 打印消息内容
+        for msg_list in messages:
+            for msg in msg_list:
+                msg_type = msg.__class__.__name__
+                content = str(msg.content)
+                if len(content) > 500:
+                    logger.info(f"{self.log_prefix} 【消息类型: {msg_type}】: {content[:500]}... (总长度: {len(content)} 字符)")
+                else:
+                    logger.info(f"{self.log_prefix} 【消息类型: {msg_type}】: {content}")
+
+    def on_llm_end(self, response: LLMResult, **kwargs) -> None:
+        """LLM调用结束时"""
+        logger.info(f"{self.log_prefix} ########## LLM调用 #{self.llm_call_count} 结束 ##########")
+
+        # 打印LLM响应
+        for idx, generation in enumerate(response.generations, 1):
+            for gen_idx, gen in enumerate(generation, 1):
+                text = gen.text if hasattr(gen, 'text') else str(gen.message.content if hasattr(gen, 'message') else gen)
+                if len(text) > 500:
+                    logger.info(f"{self.log_prefix} 【LLM响应 {idx}-{gen_idx}】: {text[:500]}... (总长度: {len(text)} 字符)")
+                else:
+                    logger.info(f"{self.log_prefix} 【LLM响应 {idx}-{gen_idx}】: {text}")
+
+                # 如果有工具调用信息，打印出来
+                if hasattr(gen, 'message') and hasattr(gen.message, 'additional_kwargs'):
+                    tool_calls = gen.message.additional_kwargs.get('tool_calls', [])
+                    if tool_calls:
+                        logger.info(f"{self.log_prefix} 【工具调用决策】: LLM决定调用 {len(tool_calls)} 个工具")
+                        for tc_idx, tc in enumerate(tool_calls, 1):
+                            logger.info(f"{self.log_prefix}   工具 {tc_idx}: {tc.get('function', {}).get('name', 'unknown')}")
+                            logger.info(f"{self.log_prefix}   参数: {tc.get('function', {}).get('arguments', '{}')}")
+
+    def on_tool_start(self, serialized: Dict[str, Any], input_str: str, **kwargs) -> None:
+        """工具开始调用时"""
+        self.tool_call_count += 1
+        tool_name = serialized.get('name', 'unknown')
+        logger.info(f"{self.log_prefix} ========== 工具调用 #{self.tool_call_count} 开始 ==========")
+        logger.info(f"{self.log_prefix} 【工具名称】: {tool_name}")
+        logger.info(f"{self.log_prefix} 【工具输入】: {input_str}")
+
+    def on_tool_end(self, output: str, **kwargs) -> None:
+        """工具调用结束时"""
+        logger.info(f"{self.log_prefix} ========== 工具调用 #{self.tool_call_count} 结束 ==========")
+        if len(output) > 1000:
+            logger.info(f"{self.log_prefix} 【工具输出】: {output[:1000]}... (总长度: {len(output)} 字符)")
+        else:
+            logger.info(f"{self.log_prefix} 【工具输出】: {output}")
+
+    def on_tool_error(self, error: Exception, **kwargs) -> None:
+        """工具调用出错时"""
+        logger.error(f"{self.log_prefix} ========== 工具调用 #{self.tool_call_count} 出错 ==========")
+        logger.error(f"{self.log_prefix} 【错误信息】: {str(error)}")
+
+    def on_agent_action(self, action, **kwargs) -> None:
+        """Agent决定执行动作时"""
+        logger.info(f"{self.log_prefix} ---------- Agent动作决策 ----------")
+        logger.info(f"{self.log_prefix} 【动作】: {action.tool}")
+        logger.info(f"{self.log_prefix} 【输入】: {action.tool_input}")
+
+    def on_agent_finish(self, finish, **kwargs) -> None:
+        """Agent执行完成时"""
+        logger.info(f"{self.log_prefix} ========== Agent执行完成 ==========")
+        output = finish.return_values.get('output', '')
+        if len(output) > 500:
+            logger.info(f"{self.log_prefix} 【最终结果】: {output[:500]}... (总长度: {len(output)} 字符)")
+        else:
+            logger.info(f"{self.log_prefix} 【最终结果】: {output}")
 
 
 class ChatBIAgent(BaseAgent):
@@ -455,8 +553,11 @@ Thought:{agent_scratchpad}"""
             if chat_history:
                 logger.info(f"{log_prefix}   - 对话历史: {len(chat_history)} 条")
 
-            # 执行agent
-            result = self.agent_executor.invoke(agent_input)
+            # 创建详细日志回调
+            detailed_callback = DetailedLoggingCallback(log_prefix=log_prefix)
+
+            # 执行agent，并传入回调
+            result = self.agent_executor.invoke(agent_input, config={"callbacks": [detailed_callback]})
 
             # ========== 添加详细的日志：提取中间步骤 ==========
             output = result.get("output", "抱歉，我无法生成回复。")
@@ -533,8 +634,11 @@ Thought:{agent_scratchpad}"""
             if chat_history:
                 logger.info(f"{log_prefix}   - 对话历史: {len(chat_history)} 条")
 
-            # 执行agent
-            result = self.agent_executor.invoke(agent_input)
+            # 创建详细日志回调
+            detailed_callback = DetailedLoggingCallback(log_prefix=log_prefix)
+
+            # 执行agent，并传入回调
+            result = self.agent_executor.invoke(agent_input, config={"callbacks": [detailed_callback]})
 
             # ========== 添加详细的日志：提取中间步骤 ==========
             response = result.get("output", "抱歉，我无法生成回复。")
