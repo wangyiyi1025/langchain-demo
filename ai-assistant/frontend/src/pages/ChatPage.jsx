@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  createWebSocket,
+  sendMessage,
   getConversation,
   addMessage,
   updateConversationTable,
@@ -31,22 +31,9 @@ function ChatPage() {
     }
   ]);
   const [isTyping, setIsTyping] = useState(false);
-  const [ws, setWs] = useState(null);
-  const [sessionId] = useState(`session_${Date.now()}`);
-  const [isConnected, setIsConnected] = useState(false);
   const [selectedTable, setSelectedTable] = useState(null);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const messagesEndRef = useRef(null);
-
-  // 使用ref保存最新的conversationId，避免WebSocket闭包陷阱
-  const conversationIdRef = useRef(currentConversationId);
-  // 使用ref保存最后一条助手消息，用于在流式传输结束后保存到数据库
-  const lastAssistantMessageRef = useRef(null);
-
-  // 同步conversationId到ref
-  useEffect(() => {
-    conversationIdRef.current = currentConversationId;
-  }, [currentConversationId]);
 
   // 自动滚动到底部
   const scrollToBottom = () => {
@@ -56,132 +43,6 @@ function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping]);
-
-  // WebSocket连接
-  useEffect(() => {
-    connectWebSocket();
-    return () => {
-      if (ws) {
-        ws.close();
-      }
-    };
-  }, []);
-
-  const connectWebSocket = () => {
-    try {
-      const websocket = createWebSocket(sessionId);
-
-      websocket.onopen = () => {
-        console.log('✅ WebSocket连接成功');
-        setWs(websocket);
-        setIsConnected(true);
-      };
-
-      websocket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
-      };
-
-      websocket.onerror = (error) => {
-        console.error('❌ WebSocket错误:', error);
-        setIsConnected(false);
-      };
-
-      websocket.onclose = (event) => {
-        console.log('🔌 WebSocket连接关闭', event.code, event.reason);
-        setIsConnected(false);
-
-        // 如果是认证错误(1008)，不自动重连，跳转到登录页
-        if (event.code === 1008) {
-          alert('认证失败，请重新登录');
-          handleLogout();
-        } else {
-          // 其他错误，3秒后重连
-          setTimeout(connectWebSocket, 3000);
-        }
-      };
-    } catch (error) {
-      console.error('WebSocket连接失败:', error);
-      setIsConnected(false);
-    }
-  };
-
-  const handleWebSocketMessage = async (data) => {
-    if (data.type === 'start') {
-      setIsTyping(true);
-    } else if (data.type === 'stream') {
-      setMessages(prev => {
-        const lastMessage = prev[prev.length - 1];
-        if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-          const updatedMessage = {
-            ...lastMessage,
-            content: lastMessage.content + data.content
-          };
-          // 保存到ref供后续保存到数据库使用
-          lastAssistantMessageRef.current = updatedMessage;
-          return [
-            ...prev.slice(0, -1),
-            updatedMessage
-          ];
-        } else {
-          const newMessage = {
-            role: 'assistant',
-            content: data.content,
-            timestamp: new Date(),
-            isStreaming: true
-          };
-          // 保存到ref供后续保存到数据库使用
-          lastAssistantMessageRef.current = newMessage;
-          return [
-            ...prev,
-            newMessage
-          ];
-        }
-      });
-    } else if (data.type === 'end') {
-      setIsTyping(false);
-
-      // 标记流式传输结束
-      setMessages(prev => {
-        const lastMessage = prev[prev.length - 1];
-        if (lastMessage && lastMessage.isStreaming) {
-          return [
-            ...prev.slice(0, -1),
-            { ...lastMessage, isStreaming: false }
-          ];
-        }
-        return prev;
-      });
-
-      // 保存助手消息到数据库
-      // 使用ref获取最新的conversationId和消息内容，避免闭包陷阱
-      const activeConversationId = conversationIdRef.current;
-      const lastAssistantMessage = lastAssistantMessageRef.current;
-
-      if (activeConversationId && lastAssistantMessage) {
-        addMessage(activeConversationId, {
-          conversation_id: activeConversationId,
-          role: 'assistant',
-          content: lastAssistantMessage.content
-        }).catch(error => {
-          console.error('保存助手消息失败:', error);
-        });
-
-        // 清空ref，避免重复保存
-        lastAssistantMessageRef.current = null;
-      }
-    } else if (data.type === 'error') {
-      setIsTyping(false);
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `抱歉，出现错误：${data.content}`,
-          timestamp: new Date()
-        }
-      ]);
-    }
-  };
 
   const handleSendMessage = async (message) => {
     if (!selectedTable) {
@@ -215,16 +76,51 @@ function ChatPage() {
       console.error('保存用户消息失败:', error);
     }
 
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      const payload = {
+    // 显示加载状态
+    setIsTyping(true);
+
+    try {
+      // 调用非流式 API
+      const response = await sendMessage({
         message,
+        session_id: currentConversationId,
+        stream: false,
         agent_type: 'chatbi',
         table_context: selectedTable
+      });
+
+      // 隐藏加载状态
+      setIsTyping(false);
+
+      // 添加助手回复到本地状态
+      const assistantMessage = {
+        role: 'assistant',
+        content: response.data.message,
+        timestamp: new Date()
       };
-      ws.send(JSON.stringify(payload));
-    } else {
-      alert('连接已断开，正在重新连接...');
-      connectWebSocket();
+
+      setMessages(prev => [...prev, assistantMessage]);
+
+      // 保存助手消息到数据库
+      await addMessage(currentConversationId, {
+        conversation_id: currentConversationId,
+        role: 'assistant',
+        content: response.data.message
+      });
+
+    } catch (error) {
+      setIsTyping(false);
+      console.error('发送消息失败:', error);
+
+      // 显示错误消息
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `抱歉，出现错误：${error.response?.data?.detail || error.message || '未知错误'}`,
+          timestamp: new Date()
+        }
+      ]);
     }
   };
 
@@ -356,19 +252,6 @@ function ChatPage() {
 
         {/* 消息区域 */}
         <div className="chat-messages">
-          {!isConnected && (
-            <div style={{
-              padding: '10px',
-              background: '#fff3cd',
-              color: '#856404',
-              borderRadius: '8px',
-              marginBottom: '10px',
-              textAlign: 'center'
-            }}>
-              ⚠️ 正在连接后端服务...
-            </div>
-          )}
-
           {messages.map((message, index) => (
             <ChatMessage key={index} message={message} />
           ))}

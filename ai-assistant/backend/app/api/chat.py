@@ -19,14 +19,14 @@ router = APIRouter(prefix="/chat", tags=["聊天"])
 
 @router.post("/message", response_model=ChatResponse)
 async def send_message(
-    request: ChatRequest,
+    request: ChatRequestWithAgent,
     current_user: dict = Depends(get_current_user_from_token)
 ):
     """
-    发送聊天消息（同步）- 需要认证
+    发送聊天消息（同步，非流式）- 需要认证
 
     Args:
-        request: 聊天请求
+        request: 聊天请求（支持agent_type和table_context）
         current_user: 当前登录用户
 
     Returns:
@@ -35,7 +35,12 @@ async def send_message(
     session_id = request.session_id or f"session_{os.urandom(8).hex()}"
 
     try:
-        result = conversation_service.chat(session_id, request.message)
+        result = conversation_service.chat(
+            session_id,
+            request.message,
+            agent_type=request.agent_type,
+            table_context=request.table_context
+        )
 
         return ChatResponse(
             success=result['success'],
