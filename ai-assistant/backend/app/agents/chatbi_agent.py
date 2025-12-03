@@ -6,8 +6,8 @@ import sys
 import logging
 from typing import List, Optional, Dict, Any
 from langchain_openai import ChatOpenAI
-from langchain.agents import create_react_agent, create_tool_calling_agent, AgentExecutor
-from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, MessagesPlaceholder
+from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -77,29 +77,17 @@ class ChatBIAgent(BaseAgent):
             get_date_info         # 获取日期信息
         ]
 
-        # 根据配置选择 Agent 类型
-        agent_type = settings.AGENT_TYPE.lower()
-        logger.info(f"正在创建 ChatBI Agent，类型: {agent_type}")
+        # 创建 Tool Calling Agent
+        logger.info("正在创建 ChatBI Agent（Tool Calling）")
 
-        if agent_type == "tool_calling":
-            # 创建 Tool Calling Agent（适用于支持 function calling 的模型）
-            self.prompt = ChatPromptTemplate.from_messages([
-                ("system", self._get_system_prompt()),
-                MessagesPlaceholder(variable_name="chat_history", optional=True),
-                ("human", "{input}"),
-                MessagesPlaceholder(variable_name="agent_scratchpad"),
-            ])
-            agent = create_tool_calling_agent(self.llm, self.tools, self.prompt)
-            logger.info("✓ Tool Calling Agent 创建成功（适用于 OpenAI/GPT 等支持 function calling 的模型）")
-
-        elif agent_type == "react":
-            # 创建 ReAct Agent（适用于本地模型，如 Ollama/qwen）
-            self.prompt = PromptTemplate.from_template(self._get_react_prompt())
-            agent = create_react_agent(self.llm, self.tools, self.prompt)
-            logger.info("✓ ReAct Agent 创建成功（适用于本地模型，如 Ollama/qwen）")
-
-        else:
-            raise ValueError(f"不支持的 Agent 类型: {agent_type}，请设置 AGENT_TYPE 为 'react' 或 'tool_calling'")
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", self._get_system_prompt()),
+            MessagesPlaceholder(variable_name="chat_history", optional=True),
+            ("human", "{input}"),
+            MessagesPlaceholder(variable_name="agent_scratchpad"),
+        ])
+        agent = create_tool_calling_agent(self.llm, self.tools, self.prompt)
+        logger.info("✓ Tool Calling Agent 创建成功")
 
         # 配置 AgentExecutor（使用配置文件中的参数）
         self.agent_executor = AgentExecutor(
@@ -178,59 +166,6 @@ class ChatBIAgent(BaseAgent):
 - 不要修改工具返回的结果
 - 不要只返回文字说明"""
 
-    def _get_react_prompt(self) -> str:
-        """获取ReAct格式的提示词 - 精简版本"""
-        return """你可以使用以下工具：
-
-{tools}
-
-## 格式规则
-
-使用标准 ReAct 格式（严格遵守）：
-
-**你输出：**
-Thought: [思考]
-Action: [工具名]
-Action Input: {{"参数": "值"}}
-
-**系统添加：**
-Observation: [结果]
-
-**你输出：**
-Thought: [分析]
-Final Answer: [答案]
-
-## 重要规则
-1. Action Input 必须是纯 JSON，不要用 ``` 包裹
-2. 不要自己写 Observation
-3. 不要使用 <think>、<tool_call> 等标签
-4. 分步输出，不要一次输出整个流程
-
-## 工具选择
-- 查看表结构 → get_schema_info
-- 只查询 → chatbi_query_only_chain
-- 查询+分析 → chatbi_query_with_analysis_chain
-- 查询+可视化 → chatbi_query_with_chart_chain
-
-## 返回格式
-Final Answer 必须包含：
-1. 简短说明（1句话）
-2. 完整JSON（markdown代码块）
-
-示例：
-```
-查询完成，返回10条数据。
-
-\`\`\`json
-{{"success": true, "data": [...], "chart_config": {{...}}}}
-\`\`\`
-```
-
-工具列表：{tool_names}
-
-Question: {input}
-Thought:{agent_scratchpad}"""
-
     def _extract_table_context(self, message: str) -> tuple[str, Optional[str], Optional[str]]:
         """
         从消息中提取表上下文信息
@@ -259,7 +194,7 @@ Thought:{agent_scratchpad}"""
         同步调用Agent处理消息
         Args:
             message: 用户消息（可能包含#database.table）
-            chat_history: 对话历史（tool_calling agent 支持，react agent 不支持）
+            chat_history: 对话历史
             **kwargs: 其他参数（可包含table_context）
         Returns:
             str: Agent响应
@@ -276,11 +211,11 @@ Thought:{agent_scratchpad}"""
             enhanced_message = message
 
         try:
-            # 根据 agent 类型构建输入
+            # 构建输入
             agent_input = {"input": enhanced_message}
 
-            # 如果是 tool_calling agent，支持 chat_history
-            if settings.AGENT_TYPE.lower() == "tool_calling" and chat_history:
+            # 添加对话历史
+            if chat_history:
                 formatted_history = self.format_chat_history(chat_history[-2:])  # 只保留最近2条
                 agent_input["chat_history"] = formatted_history
 
@@ -290,8 +225,7 @@ Thought:{agent_scratchpad}"""
             llm_logcontent = {
                 "request": {
                     "input": message,
-                    "enhanced_message": enhanced_message,
-                    "agent_type": settings.AGENT_TYPE
+                    "enhanced_message": enhanced_message
                 },
                 "response": output
             }
@@ -307,7 +241,7 @@ Thought:{agent_scratchpad}"""
         流式调用Agent处理消息
         Args:
             message: 用户消息（可能包含#database.table）
-            chat_history: 对话历史（tool_calling agent 支持，react agent 不支持）
+            chat_history: 对话历史
             **kwargs: 其他参数（可包含table_context）
         Yields:
             str: Agent响应片段
@@ -321,11 +255,11 @@ Thought:{agent_scratchpad}"""
             enhanced_message = message
 
         try:
-            # 根据 agent 类型构建输入
+            # 构建输入
             agent_input = {"input": enhanced_message}
 
-            # 如果是 tool_calling agent，支持 chat_history
-            if settings.AGENT_TYPE.lower() == "tool_calling" and chat_history:
+            # 添加对话历史
+            if chat_history:
                 formatted_history = self.format_chat_history(chat_history[-2:])
                 agent_input["chat_history"] = formatted_history
 
@@ -344,9 +278,9 @@ Thought:{agent_scratchpad}"""
     def get_info(self) -> Dict[str, Any]:
         """获取Agent信息，包含工具列表"""
         base_info = super().get_info()
-        base_info["agent_type"] = settings.AGENT_TYPE  # 当前使用的 agent 类型
+        base_info["agent_type"] = "tool_calling"
         base_info["agent_config"] = {
-            "type": settings.AGENT_TYPE,
+            "type": "tool_calling",
             "max_iterations": settings.AGENT_MAX_ITERATIONS,
             "verbose": settings.AGENT_VERBOSE,
             "handle_parsing_errors": settings.AGENT_HANDLE_PARSING_ERRORS
