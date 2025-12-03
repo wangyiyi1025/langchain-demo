@@ -1,5 +1,4 @@
 import React from 'react';
-import { CheckCircle, Circle, XCircle, Loader } from 'lucide-react';
 
 /**
  * Agent执行步骤显示组件
@@ -14,13 +13,13 @@ const AgentSteps = ({ steps = [] }) => {
   const getStepIcon = (status) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
+        return <span style={{ color: '#10b981', fontSize: '18px' }}>✓</span>;
       case 'executing':
-        return <Loader className="w-5 h-5 text-blue-500 animate-spin" />;
+        return <span style={{ color: '#3b82f6', fontSize: '18px' }} className="rotating">⟳</span>;
       case 'failed':
-        return <XCircle className="w-5 h-5 text-red-500" />;
+        return <span style={{ color: '#ef4444', fontSize: '18px' }}>✗</span>;
       default:
-        return <Circle className="w-5 h-5 text-gray-300" />;
+        return <span style={{ color: '#d1d5db', fontSize: '18px' }}>○</span>;
     }
   };
 
@@ -65,76 +64,88 @@ const AgentSteps = ({ steps = [] }) => {
   };
 
   return (
-    <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-      <div className="flex items-center mb-3">
-        <h4 className="text-sm font-semibold text-gray-700">执行步骤</h4>
-        <span className="ml-2 text-xs text-gray-500">({steps.length} 步)</span>
-      </div>
+    <>
+      <style>{`
+        @keyframes rotate {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .rotating {
+          display: inline-block;
+          animation: rotate 1s linear infinite;
+        }
+      `}</style>
+      <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <div className="flex items-center mb-3">
+          <h4 className="text-sm font-semibold text-gray-700">执行步骤</h4>
+          <span className="ml-2 text-xs text-gray-500">({steps.length} 步)</span>
+        </div>
 
-      <div className="space-y-2">
-        {steps.map((step, index) => (
-          <div
-            key={index}
-            className="flex items-start space-x-3 p-3 bg-white rounded border border-gray-100 hover:border-gray-300 transition-colors"
-          >
-            {/* 步骤图标 */}
-            <div className="flex-shrink-0 mt-0.5">
-              {getStepIcon(step.status)}
-            </div>
-
-            {/* 步骤内容 */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-medium text-gray-500">
-                    步骤 {step.step_number}
-                  </span>
-                  <span className={`text-sm font-medium ${getStepTextColor(step.status)}`}>
-                    {getToolDisplayName(step.tool_name)}
-                  </span>
-                </div>
-                {step.duration_ms !== null && step.duration_ms !== undefined && (
-                  <span className="text-xs text-gray-400">
-                    {step.duration_ms}ms
-                  </span>
-                )}
+        <div className="space-y-2">
+          {steps.map((step, index) => (
+            <div
+              key={index}
+              className="flex items-start space-x-3 p-3 bg-white rounded border border-gray-100 hover:border-gray-300 transition-colors"
+            >
+              {/* 步骤图标 */}
+              <div className="flex-shrink-0 mt-0.5">
+                {getStepIcon(step.status)}
               </div>
 
-              {/* 输入信息 */}
-              {step.input && (
-                <div className="text-xs text-gray-600 mb-1">
-                  <span className="font-medium">输入: </span>
-                  <span className="text-gray-500">{formatInput(step.input)}</span>
+              {/* 步骤内容 */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-medium text-gray-500">
+                      步骤 {step.step_number}
+                    </span>
+                    <span className={`text-sm font-medium ${getStepTextColor(step.status)}`}>
+                      {getToolDisplayName(step.tool_name)}
+                    </span>
+                  </div>
+                  {step.duration_ms !== null && step.duration_ms !== undefined && (
+                    <span className="text-xs text-gray-400">
+                      {step.duration_ms}ms
+                    </span>
+                  )}
                 </div>
-              )}
 
-              {/* 输出预览 */}
-              {step.output_preview && step.status === 'completed' && (
-                <div className="text-xs text-gray-600">
-                  <span className="font-medium">输出: </span>
-                  <span className="text-gray-500">{step.output_preview}</span>
-                </div>
-              )}
+                {/* 输入信息 */}
+                {step.input && (
+                  <div className="text-xs text-gray-600 mb-1">
+                    <span className="font-medium">输入: </span>
+                    <span className="text-gray-500">{formatInput(step.input)}</span>
+                  </div>
+                )}
 
-              {/* 错误信息 */}
-              {step.error && step.status === 'failed' && (
-                <div className="text-xs text-red-600 mt-1">
-                  <span className="font-medium">错误: </span>
-                  <span>{step.error}</span>
-                </div>
-              )}
+                {/* 输出预览 */}
+                {step.output_preview && step.status === 'completed' && (
+                  <div className="text-xs text-gray-600">
+                    <span className="font-medium">输出: </span>
+                    <span className="text-gray-500">{step.output_preview}</span>
+                  </div>
+                )}
 
-              {/* 执行中状态 */}
-              {step.status === 'executing' && (
-                <div className="text-xs text-blue-600">
-                  执行中...
-                </div>
-              )}
+                {/* 错误信息 */}
+                {step.error && step.status === 'failed' && (
+                  <div className="text-xs text-red-600 mt-1">
+                    <span className="font-medium">错误: </span>
+                    <span>{step.error}</span>
+                  </div>
+                )}
+
+                {/* 执行中状态 */}
+                {step.status === 'executing' && (
+                  <div className="text-xs text-blue-600">
+                    执行中...
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
