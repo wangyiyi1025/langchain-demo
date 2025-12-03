@@ -445,22 +445,53 @@ Thought:{agent_scratchpad}"""
                 formatted_history = self.format_chat_history(chat_history[-2:])  # 只保留最近2条
                 agent_input["chat_history"] = formatted_history
 
-            result = self.agent_executor.invoke(agent_input)
-            output = result.get("output", "抱歉，我无法生成回复。")
+            # ========== 添加详细的日志：开始执行 ==========
+            logger.info(f"{log_prefix} ========== Agent执行开始 ==========")
+            logger.info(f"{log_prefix} 【输入参数】")
+            logger.info(f"{log_prefix}   - 原始消息: {message}")
+            logger.info(f"{log_prefix}   - 增强消息: {enhanced_message}")
+            logger.info(f"{log_prefix}   - Agent类型: {settings.AGENT_TYPE}")
+            logger.info(f"{log_prefix}   - 最大迭代次数: {settings.AGENT_MAX_ITERATIONS}")
+            if chat_history:
+                logger.info(f"{log_prefix}   - 对话历史: {len(chat_history)} 条")
 
-            llm_logcontent = {
-                "request": {
-                    "input": message,
-                    "enhanced_message": enhanced_message,
-                    "agent_type": settings.AGENT_TYPE
-                },
-                "response": output
-            }
-            logger.info(f"{log_prefix} 【LLM请求】:{llm_logcontent['request']}，【LLM响应】:{llm_logcontent['response']}")
+            # 执行agent
+            result = self.agent_executor.invoke(agent_input)
+
+            # ========== 添加详细的日志：提取中间步骤 ==========
+            output = result.get("output", "抱歉，我无法生成回复。")
+            intermediate_steps = result.get("intermediate_steps", [])
+
+            logger.info(f"{log_prefix} ========== Agent执行结果 ==========")
+            logger.info(f"{log_prefix} 【迭代次数】: {len(intermediate_steps)} 次")
+
+            # 打印每次迭代的详细信息
+            for idx, (action, observation) in enumerate(intermediate_steps, 1):
+                logger.info(f"{log_prefix} ========== 第 {idx} 次迭代 ==========")
+                logger.info(f"{log_prefix} 【工具调用】")
+                logger.info(f"{log_prefix}   - 工具名称: {action.tool}")
+                logger.info(f"{log_prefix}   - 工具输入: {action.tool_input}")
+                logger.info(f"{log_prefix}   - 日志: {action.log if hasattr(action, 'log') else 'N/A'}")
+                logger.info(f"{log_prefix} 【工具输出】")
+                # 如果observation太长，只打印前1000个字符
+                obs_str = str(observation)
+                if len(obs_str) > 1000:
+                    logger.info(f"{log_prefix}   {obs_str[:1000]}... (总长度: {len(obs_str)} 字符)")
+                else:
+                    logger.info(f"{log_prefix}   {obs_str}")
+
+            logger.info(f"{log_prefix} ========== 最终输出 ==========")
+            # 如果输出太长，只打印前1000个字符
+            output_str = str(output)
+            if len(output_str) > 1000:
+                logger.info(f"{log_prefix} {output_str[:1000]}... (总长度: {len(output_str)} 字符)")
+            else:
+                logger.info(f"{log_prefix} {output_str}")
+            logger.info(f"{log_prefix} ========== Agent执行结束 ==========")
 
             return output
         except Exception as e:
-            logger.error(f"【错误】Agent执行失败: {str(e)}", exc_info=True)
+            logger.error(f"{log_prefix} 【错误】Agent执行失败: {str(e)}", exc_info=True)
             return f"处理您的请求时发生错误: {str(e)}"
 
     def stream(self, message: str, chat_history: Optional[List] = None, **kwargs):
@@ -473,6 +504,8 @@ Thought:{agent_scratchpad}"""
         Yields:
             str: Agent响应片段
         """
+        log_prefix = "[chatbi_agent.py::ChatBIAgent::stream]"
+
         # 从kwargs中获取表上下文
         table_context = kwargs.get('table_context')
 
@@ -490,9 +523,49 @@ Thought:{agent_scratchpad}"""
                 formatted_history = self.format_chat_history(chat_history[-2:])
                 agent_input["chat_history"] = formatted_history
 
+            # ========== 添加详细的日志：开始执行 ==========
+            logger.info(f"{log_prefix} ========== Agent执行开始 (流式模式) ==========")
+            logger.info(f"{log_prefix} 【输入参数】")
+            logger.info(f"{log_prefix}   - 原始消息: {message}")
+            logger.info(f"{log_prefix}   - 增强消息: {enhanced_message}")
+            logger.info(f"{log_prefix}   - Agent类型: {settings.AGENT_TYPE}")
+            logger.info(f"{log_prefix}   - 最大迭代次数: {settings.AGENT_MAX_ITERATIONS}")
+            if chat_history:
+                logger.info(f"{log_prefix}   - 对话历史: {len(chat_history)} 条")
+
+            # 执行agent
             result = self.agent_executor.invoke(agent_input)
 
+            # ========== 添加详细的日志：提取中间步骤 ==========
             response = result.get("output", "抱歉，我无法生成回复。")
+            intermediate_steps = result.get("intermediate_steps", [])
+
+            logger.info(f"{log_prefix} ========== Agent执行结果 ==========")
+            logger.info(f"{log_prefix} 【迭代次数】: {len(intermediate_steps)} 次")
+
+            # 打印每次迭代的详细信息
+            for idx, (action, observation) in enumerate(intermediate_steps, 1):
+                logger.info(f"{log_prefix} ========== 第 {idx} 次迭代 ==========")
+                logger.info(f"{log_prefix} 【工具调用】")
+                logger.info(f"{log_prefix}   - 工具名称: {action.tool}")
+                logger.info(f"{log_prefix}   - 工具输入: {action.tool_input}")
+                logger.info(f"{log_prefix}   - 日志: {action.log if hasattr(action, 'log') else 'N/A'}")
+                logger.info(f"{log_prefix} 【工具输出】")
+                # 如果observation太长，只打印前1000个字符
+                obs_str = str(observation)
+                if len(obs_str) > 1000:
+                    logger.info(f"{log_prefix}   {obs_str[:1000]}... (总长度: {len(obs_str)} 字符)")
+                else:
+                    logger.info(f"{log_prefix}   {obs_str}")
+
+            logger.info(f"{log_prefix} ========== 最终输出 ==========")
+            # 如果输出太长，只打印前1000个字符
+            response_str = str(response)
+            if len(response_str) > 1000:
+                logger.info(f"{log_prefix} {response_str[:1000]}... (总长度: {len(response_str)} 字符)")
+            else:
+                logger.info(f"{log_prefix} {response_str}")
+            logger.info(f"{log_prefix} ========== Agent执行结束 ==========")
 
             # 模拟流式输出
             chunk_size = 5
@@ -500,6 +573,7 @@ Thought:{agent_scratchpad}"""
                 yield response[i:i + chunk_size]
 
         except Exception as e:
+            logger.error(f"{log_prefix} 【错误】Agent执行失败: {str(e)}", exc_info=True)
             yield f"处理您的请求时发生错误: {str(e)}"
 
     def get_info(self) -> Dict[str, Any]:
