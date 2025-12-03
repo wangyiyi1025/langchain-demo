@@ -83,7 +83,7 @@ function ChatPage() {
       // 调用非流式 API
       const response = await sendMessage({
         message,
-        session_id: currentConversationId,
+        session_id: String(currentConversationId),
         stream: false,
         agent_type: 'chatbi',
         table_context: selectedTable
