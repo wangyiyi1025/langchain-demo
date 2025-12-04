@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "ollama"  # 提供商标识，用于日志和调试
 
     # Agent配置
-    AGENT_TYPE: str = "react"  # Agent类型: "react" 或 "tool_calling"
+    AGENT_TYPE: str = "tool_calling"  # Agent类型: 只支持 "tool_calling"
     AGENT_MAX_ITERATIONS: int = 5  # Agent最大迭代次数
     AGENT_VERBOSE: bool = True  # 是否显示详细日志
     AGENT_HANDLE_PARSING_ERRORS: bool = True  # 是否处理解析错误
